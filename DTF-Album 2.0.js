@@ -3,7 +3,7 @@
 // @namespace   https://github.com/TentacleTenticals
 // @match       https://dtf.ru/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Tentacle Tenticals
 // @description Заменяет стандартные альбомы на иную их версию. Работает в двух режимах - автоматическом, и ручном (по нажатию кнопки).
 // @homepage https://github.com/TentacleTenticals/DTF-showAvatar
@@ -671,7 +671,7 @@
         border: '1px solid rgb(157 154 154)',
         borderRadius: '3px',
         top: '22px',
-        margin: '0px 5px 0px 0px',
+        margin: '0px 5px 10px 0px',
         hover:{
           background: 'rgb(72 72 72)',
           cursor: 'pointer'
@@ -689,7 +689,7 @@
         border: '1px solid rgb(157 154 154)',
         borderRadius: '3px',
         top: '22px',
-        margin: '0px 5px 0px 0px',
+        margin: '0px 5px 10px 0px',
         hover:{
           background: 'rgb(72 72 72)',
           cursor: 'pointer'
