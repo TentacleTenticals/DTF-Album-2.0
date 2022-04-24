@@ -895,7 +895,7 @@ class CreateAlbumButtonCompilation{
           console.log('Album compilation 2.0 detected!');
             for(let i = 0, images = document.querySelectorAll(`.content.content--full figure[class='figure-image'] img`); i < images.length; i++){
                 let el = images[i].parentNode.parentNode.parentNode.parentNode.parentNode;
-                if(el.style.display = 'none'){
+                if(el.style.display === 'none'){
                     el.style.display = '';
                 }
             }
@@ -1082,7 +1082,7 @@ class AlbumItem{
                 focused.children[1].style.zoom = '100%';
                 focused.classList.remove('zoomed');
             }
-            imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+            imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
         }
     }
     this.bContainer.appendChild(this.bTurnOffZoom);
@@ -1112,25 +1112,25 @@ class AlbumItem{
                     if(!s.target.style.zoom){
                         s.target.style.zoom = `125%`;
                         if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                        imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${s.target.style.zoom}`;
+                        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
                     }else
                     if(s.target.style.zoom){
                         s.target.style.zoom = `${+s.target.style.zoom.replace('%', '') + 25}%`;
                         if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                        imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${s.target.style.zoom}`;
+                        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
                     }
                 }else
                 if(s.deltaY > 0 && button1Pressed){
                     if(!s.target.style.zoom){
                         s.target.style.zoom = `75%`;
                         if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                        imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${s.target.style.zoom}`;
+                        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
                     }else
                     if(s.target.style.zoom){
                         if(+s.target.style.zoom.replace('%', '') > 25){
                             s.target.style.zoom = `${+s.target.style.zoom.replace('%', '') - 25}%`;
                             if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                            imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${s.target.style.zoom}`;
+                            imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
                         }
                     }
                 }
@@ -1160,7 +1160,7 @@ class AlbumPreview{
                     focused.children[1].style.zoom = '100%';
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
                 focused.classList.remove('picked');
                 focused.previousElementSibling.focus();
             }else
@@ -1170,7 +1170,7 @@ class AlbumPreview{
                     focused.children[1].style.zoom = '100%';
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
                 focused.classList.remove('picked');
                 focused.parentNode.children[focused.parentNode.children.length-1].focus();
             }
@@ -1189,7 +1189,7 @@ class AlbumPreview{
                     focused.children[1].style.zoom = '100%';
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
                 focused.classList.remove('picked');
                 focused.nextElementSibling.focus();
             }else
@@ -1199,7 +1199,7 @@ class AlbumPreview{
                     focused.children[1].style.zoom = '100%';
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
                 focused.classList.remove('picked');
                 focused.parentNode.children[0].focus();
             }
@@ -1233,7 +1233,7 @@ class AlbumPreview{
     
     this.imgLinksFieldTitle=document.createElement('div');
     this.imgLinksFieldTitle.className='albumPreview-field-imgLinksField-title';
-    this.imgLinksFieldTitle.textContent=buttonsText.linksList;
+    this.imgLinksFieldTitle.textContent=imagePreviewerElements.linksList;
     this.imgLinksField.appendChild(this.imgLinksFieldTitle);
     
     this.imgLinksList=document.createElement('div');
@@ -1896,10 +1896,10 @@ function getFocus(e){
       // img.style.zoom = 'unset'
       // console.log(focused.querySelector(`img`).src)
       layout.style.zIndex = '0';
-      imagePreviewer.count.textContent = `${buttonsText.image.text}${Array.prototype.indexOf.call(focused.parentNode.children, focused) + 1}${buttonsText.image.spacer}${focused.parentNode.childElementCount}`;
-      imagePreviewer.info.textContent = `${buttonsText.info.text}${focused.children[1].naturalWidth}${buttonsText.info.spacer}${focused.children[1].naturalHeight}${buttonsText.info.px}`;
-      imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
-      imagePreviewer.title.textContent = `${buttonsText.title}${focused.children[1].getAttribute('imgTitle')||''}`;
+      imagePreviewer.count.textContent = `${imagePreviewerElements.images.text}${Array.prototype.indexOf.call(focused.parentNode.children, focused) + 1}${imagePreviewerElements.images.spacer}${focused.parentNode.childElementCount}`;
+      imagePreviewer.info.textContent = `${imagePreviewerElements.info.text}${focused.children[1].naturalWidth}${imagePreviewerElements.info.spacer}${focused.children[1].naturalHeight}${imagePreviewerElements.info.px}`;
+      imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+      imagePreviewer.title.textContent = `${imagePreviewerElements.title}${focused.children[1].getAttribute('imgTitle')||''}`;
       checkLinks(focused.children[1].getAttribute('imgLinks'), imagePreviewer.imgLinks);
     }
   }
@@ -1917,7 +1917,7 @@ function keyDown(e){
             focused.children[1].style.zoom = '100%';
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
         focused.classList.remove('picked');
         focused.previousElementSibling.focus();
       }else
@@ -1927,7 +1927,7 @@ function keyDown(e){
             focused.children[1].style.zoom = '100%';
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
         focused.classList.remove('picked');
         focused.parentNode.children[focused.parentNode.children.length-1].focus();
       }
@@ -1944,7 +1944,7 @@ function keyDown(e){
             focused.children[1].style.zoom = '100%';
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
         focused.classList.remove('picked');
         focused.nextElementSibling.focus();
       }else
@@ -1954,7 +1954,7 @@ function keyDown(e){
             focused.children[1].style.zoom = '100%';
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${buttonsText.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
         focused.classList.remove('picked');
         focused.parentNode.children[0].focus();
       }
