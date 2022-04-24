@@ -64,7 +64,8 @@
       // active:true - Появление кнопки для совмещения альбомов.
       // active:false - Кнока не появится, совмещения не произойдёт.
       // Если в ОСНОВНОМ режиме (main) выбран автоматический режим, то кнопка совмещения альбомов НЕ появится.
-      merge:{active:true},
+      // howMany: - На сколько альбомов реагировать для создания кнопки. ДЕФОЛТ: '2'.
+      merge:{active:true, howMany:2},
       
       // Сбор компиляции (набора изображений ВНЕ стандартных альбомов) в один Альбом 2.0.
       // active:true - Появление кнопки для сборка компиляции в альбом.
@@ -308,7 +309,7 @@
         maxHeight: '400px' // Ширина
       },
       padding: '3px 0px 5px 0px',
-      margin: '23px 0px 20px 0px',
+      margin: '27px 0px 20px 0px',
       boxShadow: '0px 0px 1px black',
       info:{// Сколько изображений в альбоме.
         fontSize: '25px',
@@ -1992,10 +1993,21 @@ function keyUp(e){
   }
 }
 
-function checkItems(q){
+function checkAlbums(albums){
+  let albumsN = 0;
+  for(let a = 0; a < albums.length; a++){
+    if(albums[a]){
+      albumsN++;
+    }
+    if(a+1 === albums.length){
+      return albumsN;
+    }
+  }
+}
+function checkItems(res){
     let albumsN = 0,
         artsN = 0;
-    for(let i = 0, items = JSON.parse(q.textContent.trim()); i < items.length; i++){
+    for(let i = 0, items = JSON.parse(res.textContent.trim()); i < items.length; i++){
         if(items[i].image.type === 'image'){
             artsN++;
         }
@@ -2119,10 +2131,12 @@ function run(){
     if(mode.merge.active && !mode.main.auto){
         if(document.querySelector(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)){
             if(!document.querySelector(`button[class='dtf-album-button-create-merge']`)){
-            console.log('Creating merge button...');
-                new CreateAlbumButtonMerged({
-                    target: document.querySelector(`.content.content--full`)
-                })
+                if(checkAlbums(document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)) >= mode.merge.howMany){
+                    console.log('Creating merge button...');
+                    new CreateAlbumButtonMerged({
+                        target: document.querySelector(`.content.content--full`)
+                    })
+                }
             }
         }
     }
