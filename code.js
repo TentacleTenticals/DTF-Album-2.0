@@ -1,3 +1,4 @@
+
   {
     const log = console.log.bind(console)
     console.log = (...args) => {
@@ -655,7 +656,7 @@
         border: '1px solid rgb(157 154 154)',
         borderRadius: '3px',
         top: '22px',
-        margin: '0px 5px 0px 0px',
+        margin: '0px 5px 10px 0px',
         hover:{
           background: 'rgb(72 72 72)',
           cursor: 'pointer'
@@ -673,7 +674,7 @@
         border: '1px solid rgb(157 154 154)',
         borderRadius: '3px',
         top: '22px',
-        margin: '0px 5px 0px 0px',
+        margin: '0px 5px 10px 0px',
         hover:{
           background: 'rgb(72 72 72)',
           cursor: 'pointer'
