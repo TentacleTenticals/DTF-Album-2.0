@@ -3,7 +3,7 @@
 // @namespace   https://github.com/TentacleTenticals
 // @match       https://dtf.ru/*
 // @grant       none
-// @version     1.2
+// @version     1.2.1
 // @author      Tentacle Tenticals
 // @description Заменяет стандартные альбомы на иную их версию. Работает в двух режимах - автоматическом, и ручном (по нажатию кнопки).
 // @homepage https://github.com/TentacleTenticals/DTF-showAvatar
@@ -13,7 +13,7 @@
 
 (function() {
   'use strict';
-  
+
   {
     const log = console.log.bind(console)
     console.log = (...args) => {
@@ -47,14 +47,14 @@
   // };
   // const observer = new MutationObserver(callback);
   // observer.observe(document.body, config);
-  
+
   let focused,
     imagePreviewer,
     button1Pressed,
     filter = /(.+)\//,
     dtfFilter = /(https:\/\/[^/]+\/[^/]+.+)\?ref.+/,
     layout = document.querySelector(`div[class='site-header-container']`),
-    
+
     // Настройка поисковиков для меню поиска изображений.
       // url: - ссылка для работы поиска.
       // name: имя поиска в меню поиска изображений.
@@ -68,42 +68,42 @@
       {url:'http://iqdb.org/?url=', name:'IQDB', use:true}
     ],
     mode = {// Настройка режимов работы скрипта. true/false.
-      
+
       // main: - Основной режим.
       // auto:true - Автоматический режим. Скрипт находит в статье альбомы, и сам заменяет их.
       // auto:false - Ручной режим. Скрипт находит в статье альбомы, и добавляет перед ними кнопки, которые при нажатии на них заменяют альбом под ними.
       // button: true/false - Создавать-ли кнопку возвращения альбомов. Работает лишь для АВТО режима, т.к ручной и так создаёт эти кнопки.
       // howMany: число - На сколько именно изображений в альбоме реагировать. Работает для ОБОИХ режимов.
       main:{active:true, auto:false, button:true, howMany:2},
-      
+
       // Совмещение ВСЕХ стандартных альбомов в статье в один Альбом 2.0.
       // active:true - Появление кнопки для совмещения альбомов.
       // active:false - Кнока не появится, совмещения не произойдёт.
       // Если в ОСНОВНОМ режиме (main) выбран автоматический режим, то кнопка совмещения альбомов НЕ появится.
       // howMany: - На сколько альбомов реагировать для создания кнопки. ДЕФОЛТ: '2'.
       merge:{active:true, howMany:2},
-      
+
       // Сбор компиляции (набора изображений ВНЕ стандартных альбомов) в один Альбом 2.0.
       // active:true - Появление кнопки для сборка компиляции в альбом.
       // active:false - Кнока не появится, сборки не произойдёт.
       // howMany: - На сколько изображений в подборке реагировать для создания кнопки. ДЕФОЛТ: '2'.
       compilation:{active:true, howMany:2},
-      
+
       // Режим работы зума. true/false (выкл/выкл).
       // При зуме, скроллбар старается держаться близ курсора мыши. ДЕФОЛТ: false.
       smartZoom: false,
-      
+
       // Кнопка активации РЕЖИМА ЗУМА при предпросмотре изображения. Зум работает лишь с одновременным скроллом колёсиком мыши на изображении.
       // Используйте кноки Control/Alt/Shift и т.п. Клавиши букв, цифр и символов лучше не использовать.
       button1: 'Control',
-      
+
       // Кнопки навигации между выбранными изображениями (в РЕЖИМЕ ПРОСМОТРА). ДЕФОЛТ: ArrowLeft/ArrowRight.
       buttonPrev: 'ArrowLeft',
       buttonNext: 'ArrowRight',
       // Кнопка для закрытия ПРОСМОТРА. Дефолт: Escape.
       buttonEsc: 'Escape'
     },
-    
+
     // Настройки текста кнопок.
     buttonsText = {
       copyLink: '🔗', // Текст кнопки копирования ссылки на изображение в буфер обмена. ДЕФОЛТ: '🔗'. 📋
@@ -113,7 +113,7 @@
       previous: '🔙', // Текст кнопки перехода на предыдущий итем. ДЕФОЛТ: '🔙'. ⬅️
       next: '🔜', // Текст кнопки перехода на следующий итем. ДЕФОЛТ: '🔜'. ➡️
       close: '✖️', // Текст кнопки закрытия предпросмотра итема. ДЕФОЛТ: '✖️'. 🚪 ❌ ❎
-      
+
       // Текст кнопки замены стандартного DTF альбома на DTF-Альбом 2.0. ДЕФОЛТ: `Заменить альбом на 'Альбом 2.0'` / `Вернуть стандартный альбом`.
       createAlbum:{
         default:`Заменить альбом на 'Альбом 2.0'`,
@@ -130,7 +130,7 @@
         pressed:`Вернуть подборку`
       },
     },
-    
+
     imagePreviewerElements = {
       // Текст-описание изображений в альбоме. ДЕФОЛТ: '🖼️: ' (🖼️: "значение" / "значение").
       images:{
@@ -147,7 +147,7 @@
       linksList: '🔗', // Текст-Title списка ссылок на изображение. ДЕФОЛТ: '🔗'.
       title: '📝: ', // Текст-Title описания изображения. ДЕФОЛТ: '📝: '. 📓 📝 📛
     },
-    
+
     alertTextUrlCopied = '📋 Ссылка скопирована в буфер обмена', // Текст оповещения при копировании ссылки на изображение в буфер обмена. ДЕФОЛТ: 'Ссылка скопирована в буфер обмена'.
 
     main = {
@@ -183,7 +183,7 @@
       rowsTemplate: '169px', // Высота строки итемов. В идеале, должна совпадать с высотой итема (размером).
       // Т.е, итем 169px x 169px имеет rowsTemplate 169px.
       gap: '9px', // Отступ между итемами. ДЕФОЛТ: 9px
-      padding: '4px 0px 0px 0px', // Отступ между альбомом и "сеткой итемов" (изображений) внутри него.
+      padding: '4px 0px 4px 0px', // Отступ между альбомом и "сеткой итемов" (изображений) внутри него.
       borderRadius: '3px', // Округление углов итема. ДЕФОЛТ: 3px
       background: 'rgb(0, 0, 0)', // Фон итема. Нужно, когда изображение идёт не во весь размер итема, или не имеет фона. Дефолт: rgb(0,0,0)
       boxShadow: '0px 0px 2px 1px rgb(46 207 229 / 20%), 0px 0px 2px 1px rgb(0 0 0)', // Тень итема. ДЕФОЛТ: '0px 0px 2px 1px rgb(46 207 229 / 20%), 0px 0px 2px 1px rgb(0 0 0)'
@@ -317,14 +317,14 @@
         }
       }
     },
-      
+
     // Настройки альбома.
     album = {
       size:{// Размер альбома.
         maxWidth: 'unset', // Длина
         maxHeight: '400px' // Ширина
       },
-      padding: '3px 0px 5px 0px',
+      padding: '3px 0px 3px 0px',
       margin: '27px 0px 20px 0px',
       boxShadow: '0px 0px 1px black',
       info:{// Сколько изображений в альбоме.
@@ -476,7 +476,7 @@
           borderRadius: '6px',
           padding: '3px 3px 3px 3px',
           margin: '0px 0px 0px 0px',
-          
+
           title:{// Title
             size:{
               width: '100%',
@@ -496,7 +496,7 @@
             padding: '3px 3px 3px 3px',
             margin: '0px 0px 3px 0px',
           },
-          
+
           list:{
             size:{
               width: '197px',
@@ -515,7 +515,7 @@
             borderRadius: 'unset',
             padding: '3px 3px 3px 3px',
             margin: '0px 0px 0px 0px',
-            
+
             items:{
               color: 'white',
               fontSize: '13px',
@@ -770,7 +770,7 @@ class ButtonCreateAlbum{
                           album.info.textContent = artsN;
                       }
                    }
-                    
+
                }
               e.target.nextElementSibling.style.display = 'none';
               e.target.textContent = buttonsText.createAlbum.pressed
@@ -786,8 +786,17 @@ class ButtonCreateAlbum{
     }
     // target.parentNode.parentNode.parentNode.parentNode.insertBefore(this.a, target.parentNode.parentNode.parentNode);
     target.parentNode.insertBefore(this.a, where);
-    
+
     return this.a;
+  }
+}
+class ButtonContainer{
+  constructor({target}){
+  this.container=document.createElement('div');
+  this.container.className='dtf-album-buttonContainer';
+
+  target.children[0].parentNode.insertBefore(this.container, target.children[0]);
+  return this.container;
   }
 }
 class CreateAlbumButtonMerged{
@@ -800,8 +809,8 @@ class CreateAlbumButtonMerged{
           if(document.querySelector(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)){
             console.log('Yes, founded');
               let album = new AlbumMerged({
-                  where: e.target.nextElementSibling.nextElementSibling,
-                  target: e.target.nextElementSibling
+                  where: e.target.parentNode.nextElementSibling.nextElementSibling,
+                  target: e.target.parentNode.nextElementSibling
               });
               let artsN = 0;
               for(let a = 0, albums = document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`); a < albums.length; a++){
@@ -859,7 +868,8 @@ class CreateAlbumButtonMerged{
           document.querySelector(`div[class='dtf-album-merged']`).remove();
       }
     }
-    target.children[0].parentNode.insertBefore(this.a, target.children[0]);
+    target.appendChild(this.a);
+    //target.children[0].parentNode.insertBefore(this.a, target.children[0]);
     return this.a;
   }
 }
@@ -884,8 +894,8 @@ class CreateAlbumButtonCompilation{
         }
         if(!document.querySelector(`div[class='dtf-album-compilation']`)){
             let album = new AlbumCompilation({
-                where: e.target.nextElementSibling.nextElementSibling,
-                target: e.target.nextElementSibling
+                where: e.target.parentNode.nextElementSibling.nextElementSibling,
+                target: e.target.parentNode.nextElementSibling
             });
             for(let i = 0, images = document.querySelectorAll(`.content.content--full figure[class='figure-image'] .andropov_image`); i < images.length; i++){
                 console.log(images.length);
@@ -918,7 +928,8 @@ class CreateAlbumButtonCompilation{
             e.target.textContent = buttonsText.createAlbumCompilation.default;
         }
     }
-    target.children[0].parentNode.insertBefore(this.a, target.children[0]);
+    target.appendChild(this.a);
+    //target.children[0].parentNode.insertBefore(this.a, target.children[0]);
     return this.a;
   }
 }
@@ -1046,7 +1057,7 @@ class AlbumItem{
         });
     }
     this.bContainer.appendChild(this.bCopyLink);
-    
+
     this.dImgDownload=document.createElement('button');
     this.dImgDownload.className='album-item-button-download';
     this.dImgDownload.textContent = buttonsText.saveImage;
@@ -1066,10 +1077,10 @@ class AlbumItem{
                 return g.replace(/:/gm, '#');
             })
         }).${blob.type.replace(/[^]+\/(.+)/, '$1')}`
-        link.dispatchEvent(new MouseEvent('click', { 
-          bubbles: true, 
-          cancelable: true, 
-          view: window 
+        link.dispatchEvent(new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window
         }));
     }
     this.bContainer.appendChild(this.dImgDownload);
@@ -1086,11 +1097,11 @@ class AlbumItem{
         menu.focus();
     }
     this.bContainer.appendChild(this.bImgSearch);
-    
+
     this.bTurnOffZoom=document.createElement('button');
     this.bTurnOffZoom.className='album-item-button-turnOffZoom';
     this.bTurnOffZoom.textContent = buttonsText.turnOffZoom;
-    this.bTurnOffZoom.onclick = async function(e){
+    this.bTurnOffZoom.onclick = function(e){
         if(focused){
             if(focused.classList.value.match(/zoomed/)){
                 focused.scrollTo(0, 0);
@@ -1154,7 +1165,7 @@ class AlbumItem{
     }
     this.e.appendChild(this.i);
 
-    return this.e, this.i;
+    return this.i;
   }
 }
 class AlbumPreview{
@@ -1163,7 +1174,7 @@ class AlbumPreview{
     this.a.className='albumPreview-field';
     this.a.setAttribute('tabindex', '-1');
     target.appendChild(this.a);
-      
+
     this.bL=document.createElement('button');
     this.bL.className = 'albumPreview-nav-previous-button';
     this.bL.textContent=buttonsText.previous;
@@ -1226,35 +1237,35 @@ class AlbumPreview{
     this.imgCount.className='albumPreview-field-imgCount';
     this.imgCount.textContent = '';
     this.a.appendChild(this.imgCount);
-    
+
     this.imgInfo=document.createElement('div');
     this.imgInfo.className='albumPreview-field-imgInfo';
     this.imgInfo.textContent = '';
     this.a.appendChild(this.imgInfo);
-    
+
     this.imgZoom=document.createElement('div');
     this.imgZoom.className='albumPreview-field-imgZoom';
     this.imgZoom.textContent = '';
     this.a.appendChild(this.imgZoom);
-    
+
     this.imgTitle=document.createElement('div');
     this.imgTitle.className='albumPreview-field-imgTitle';
     this.imgTitle.textContent = 'Links:';
     this.a.appendChild(this.imgTitle);
-    
+
     this.imgLinksField=document.createElement('div');
     this.imgLinksField.className='albumPreview-field-imgLinksField';
     this.a.appendChild(this.imgLinksField);
-    
+
     this.imgLinksFieldTitle=document.createElement('div');
     this.imgLinksFieldTitle.className='albumPreview-field-imgLinksField-title';
     this.imgLinksFieldTitle.textContent=imagePreviewerElements.linksList;
     this.imgLinksField.appendChild(this.imgLinksFieldTitle);
-    
+
     this.imgLinksList=document.createElement('div');
     this.imgLinksList.className='albumPreview-field-imgLinksField-list';
     this.imgLinksField.appendChild(this.imgLinksList);
-    
+
     this.buttonClose=document.createElement('button');
     this.buttonClose.className = 'albumPreview-nav-close-button';
     this.buttonClose.textContent=buttonsText.close;
@@ -1281,7 +1292,7 @@ class AlbumPreview{
     }
     this.a.appendChild(this.buttonClose);
 
-    return this.a, {main:this.a, count:this.imgCount, info:this.imgInfo, zoom:this.imgZoom, title:this.imgTitle, imgLinks:this.imgLinksList};
+    return {main:this.a, count:this.imgCount, info:this.imgInfo, zoom:this.imgZoom, title:this.imgTitle, imgLinks:this.imgLinksList};
   }
 }
 class ImgLinksItem{
@@ -1290,9 +1301,9 @@ class ImgLinksItem{
     this.i.textContent=href.replace(/(http|https):\/\/([^/]+).*/gm, '$2');
     this.i.href=href;
     this.i.target='_blank';
-    
+
     target.appendChild(this.i);
-    
+
     return this.i;
   }
 }
@@ -1323,6 +1334,11 @@ body.blockScroll {
   padding: ${main.alert.padding};
   position: fixed;
   z-index: ${main.alert.zIndex};
+}
+
+.dtf-album-buttonContainer {
+  display: flex;
+  justify-content: center;
 }
 
 .dtf-album-button-create {
@@ -2067,7 +2083,7 @@ function run(){
     if(mode.main.active && mode.main.auto){
         if(document.querySelector(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)){
             for(let a = 0, albumArr = document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`); a < albumArr.length; a++){
-                if(checkItems(arr[i]) >= mode.main.howMany){
+                if(checkItems(albumArr[a]) >= mode.main.howMany){
                     if(!albumArr[a].parentNode.parentNode.parentNode.previousElementSibling){
                         let al = albumArr[a].parentNode.parentNode.parentNode;
                         if(!al.style.display){
@@ -2149,9 +2165,19 @@ function run(){
             if(!document.querySelector(`button[class='dtf-album-button-create-merge']`)){
                 if(checkAlbums(document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)) >= mode.merge.howMany){
                     console.log('Creating merge button...');
-                    new CreateAlbumButtonMerged({
+                    if(!document.querySelector(`div[class='dtf-album-buttonContainer']`)){
+                    let container = new ButtonContainer ({
                         target: document.querySelector(`.content.content--full`)
-                    })
+                        });
+                        new CreateAlbumButtonMerged({
+                            target: container
+                        });
+                    }
+                    if(document.querySelector(`div[class='dtf-album-buttonContainer']`)){
+                        new CreateAlbumButtonMerged({
+                            target: document.querySelector(`.content.content--full`)
+                        });
+                    }
                 }
             }
         }
@@ -2160,9 +2186,19 @@ function run(){
         if(document.querySelectorAll(`.content.content--full figure[class='figure-image'] .andropov_image`).length >= mode.compilation.howMany){
             if(!document.querySelector(`button[class='dtf-album-button-create-compilation']`)){
                 console.log('Creating compilation button...');
-                new CreateAlbumButtonCompilation({
-                    target: document.querySelector(`.content.content--full`)
-                })
+                if(!document.querySelector(`div[class='dtf-album-buttonContainer']`)){
+                    let container = new ButtonContainer ({
+                        target: document.querySelector(`.content.content--full`)
+                        });
+                        new CreateAlbumButtonCompilation({
+                            target: container
+                        });
+                }else
+                if(document.querySelector(`div[class='dtf-album-buttonContainer']`)){
+                    new CreateAlbumButtonCompilation({
+                        target: document.querySelector(`div[class='dtf-album-buttonContainer']`)
+                    });
+                }
             }
         }
     }
