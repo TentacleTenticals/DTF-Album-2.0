@@ -33,6 +33,8 @@
   // const observer = new MutationObserver(callback);
   // observer.observe(document.body, config);
 
+    // https://code.jquery.com/jquery-3.6.0.min.js
+
   let focused,
     imagePreviewer,
     button1Pressed,
@@ -52,7 +54,7 @@
       {url:'http://tineye.com/search/?url=', name:'TinEye', use:true},
       {url:'http://iqdb.org/?url=', name:'IQDB', use:true}
     ],
-    mode = {// Настройка режимов работы скрипта. true/false.
+    cfg = {// Настройка режимов работы скрипта. true/false.
 
       // main: - Основной режим.
       // auto:true - Автоматический режим. Скрипт находит в статье альбомы, и сам заменяет их.
@@ -74,19 +76,49 @@
       // howMany: - На сколько изображений в подборке реагировать для создания кнопки. ДЕФОЛТ: '2'.
       compilation:{active:true, howMany:2},
 
-      // Режим работы зума. true/false (выкл/выкл).
-      // При зуме, скроллбар старается держаться близ курсора мыши. ДЕФОЛТ: false.
-      smartZoom: false,
+      zoom:{
+          // Режим работы зума. true/false (выкл/выкл).
+          // При зуме, скроллбар старается держаться близ курсора мыши. ДЕФОЛТ: false.
+          smartZoom: false,
+          // Сила зума. Лучше ставить 0.10/0.15/0.20/0.25/и т.д.
+          zoomPower: 0.25
+      },
+      scroll:{
+          // Сила скролла (при скролле клавишами клавиатуры).
+          scrollPower: 100
+      },
 
-      // Кнопка активации РЕЖИМА ЗУМА при предпросмотре изображения. Зум работает лишь с одновременным скроллом колёсиком мыши на изображении.
-      // Используйте кноки Control/Alt/Shift и т.п. Клавиши букв, цифр и символов лучше не использовать.
-      button1: 'Control',
+      browser:{
+          // ВАЖНАЯ НАСТРОЙКА! true/false. Если включено (true), то скрипт будет считать что используется Firefox браузер, и любые ему подобные на том же движке.
+          isFirefox: false
+      },
 
-      // Кнопки навигации между выбранными изображениями (в РЕЖИМЕ ПРОСМОТРА). ДЕФОЛТ: ArrowLeft/ArrowRight.
-      buttonPrev: 'ArrowLeft',
-      buttonNext: 'ArrowRight',
-      // Кнопка для закрытия ПРОСМОТРА. Дефолт: Escape.
-      buttonEsc: 'Escape'
+      buttons:{
+          main:{
+              // Кнопка активации РЕЖИМА ЗУМА при предпросмотре изображения. Зум работает лишь с одновременным скроллом колёсиком мыши на изображении.
+              // Используйте кноки Control/Alt/Shift и т.п. Клавиши букв, цифр и символов лучше не использовать.
+              button1: /Control/
+          },
+          zoom:{
+              // Зум в РЕЖИМЕ ПРОСМОТРА клавишами клавиатуры.
+              in: /KeyE|NumpadAdd/,
+              out: /KeyQ|NumpadSubtract/
+          },
+          scroll:{
+              // Скролл клавишами клавиатуры.
+              left: /KeyA|Numpad4/,
+              right: /KeyD|Numpad6/,
+              top: /KeyW|Numpad8/,
+              bottom: /KeyS|Numpad2/
+          },
+          navigation:{
+              // Кнопки навигации между выбранными изображениями (в РЕЖИМЕ ПРОСМОТРА). ДЕФОЛТ: ArrowLeft/ArrowRight.
+              previous: /ArrowLeft/,
+              next: /ArrowRight|Space/,
+              // Кнопка для закрытия РЕЖИМА ПРОСМОТРА. Дефолт: Escape.
+              esc: /Escape/
+          }
+      },
     },
 
     // Настройки текста кнопок.
@@ -128,16 +160,23 @@
         spacer: ' x ',
         px: ' px'
       },
-      zoomLevel: 'Ур.зума: ', // Текст-описание зума. ДЕФОЛТ: 'Ур.зума: '. (Ур.зума: 'значение').
+      zoomLevel: {text:'Ур.зума: ', x:'x'}, // Текст-описание зума. ДЕФОЛТ: 'Ур.зума: '. (Ур.зума: 'значение').
       linksList: '🔗', // Текст-Title списка ссылок на изображение. ДЕФОЛТ: '🔗'.
       title: '📝: ', // Текст-Title описания изображения. ДЕФОЛТ: '📝: '. 📓 📝 📛
     },
 
     alertTextUrlCopied = '📋 Ссылка скопирована в буфер обмена', // Текст оповещения при копировании ссылки на изображение в буфер обмена. ДЕФОЛТ: 'Ссылка скопирована в буфер обмена'.
 
-    main = {
+    mainCSS = {
       albums:{
-        overscroll: 'auto' // ВАЖНЫЙ ПАРАМЕТР! Определяет что делать, если Вы пролистали весь альбом, т.е скролл альбома дальше не пойдёт.
+        overscroll: 'auto', // ВАЖНЫЙ ПАРАМЕТР! Определяет что делать, если Вы пролистали весь альбом, т.е скролл альбома дальше не пойдёт.
+        info:{
+          hover:{
+            // ВАЖНЫЙ ПАРАМЕТР! Определяет, скрывать, или нет Album Info (плашку в левом верхнем углу с кол-вом изображений в альбоме) при наведении на содержимое альбома.
+            // ДЕФОЛТ: '0'. 'unset' для отключения.
+            opacity: '0'
+          }
+        }
       },
       // contain (скролл при наведении на альбом, идёт лишь внутри альбома).
       // auto (скролл при наведении на альбом, идёт внутри альбома, пока он не закончится, и далее идёт по самой странице).
@@ -158,8 +197,9 @@
         zIndex: '1000'
       }
     },
+
     // Настройки вида итемов в альбоме.
-    albumItems = {
+    albumItemsCSS = {
       itemsInColumn: '4', // Сколько итемов должно быть в строке. Выбирайте 1-4 если не собираетесь менять размер итемов, иначе появится горизонтальный скролл. ДЕФОЛТ: 3.
       size:{ // Размер итема. В идеале, должен быть квадрат. ДЕФОЛТ: 169px x 169px
         width: '169px',
@@ -171,11 +211,14 @@
       padding: '4px 0px 4px 0px', // Отступ между альбомом и "сеткой итемов" (изображений) внутри него.
       borderRadius: '3px', // Округление углов итема. ДЕФОЛТ: 3px
       background: 'rgb(0, 0, 0)', // Фон итема. Нужно, когда изображение идёт не во весь размер итема, или не имеет фона. Дефолт: rgb(0,0,0)
-      boxShadow: '0px 0px 2px 1px rgb(46 207 229 / 20%), 0px 0px 2px 1px rgb(0 0 0)', // Тень итема. ДЕФОЛТ: '0px 0px 2px 1px rgb(46 207 229 / 20%), 0px 0px 2px 1px rgb(0 0 0)'
+      boxShadow: '0px 0px 2px 1px rgba(46, 207, 229, 0.20), 0px 0px 2px 1px rgb(0, 0, 0)', // Тень итема. ДЕФОЛТ: '0px 0px 2px 1px rgb(46 207 229 / 20%), 0px 0px 2px 1px rgb(0 0 0)'
       hover:{// Вид при наведении на элемент.
-        boxShadow: '0px 0px 2px 1px rgb(46 207 229 / 20%), 0px 0px 2px 1px rgb(0 0 0)', // Ховер итема. Тут две тени по-дефолту.
+        boxShadow: '0px 0px 2px 1px rgba(46, 207, 229, 0.20), 0px 0px 2px 1px rgb(0, 0, 0)', // Ховер итема. Тут две тени по-дефолту.
         cursor: 'pointer', // Вид курсора при наведении на итем. ДЕФОЛТ: pointer.
-        filter: 'drop-shadow(0px 0px 1px black)'
+        filter: 'drop-shadow(0px 0px 1px black)',
+        zIndex: 'unset' // ВАЖНЫЙ ПАРАМЕТР! Определяет, что делать с Album Info (плашкой в левом верхнем углу альбома с кол-вом изображений);
+        // При '1', наведение на "итем" альбома скрывает позади Album Info.
+        // ДЕФОЛТ: '1'. 'unset' для отключения.
       },
       image:{// Изображение в итеме.
         size:{ // Размер изображения. Лучше, если максимальный размер изображения будет больше, чем размер самого итема, чтобы не было вертикальных чёрных полосок.
@@ -199,10 +242,10 @@
             minHeight: '20px',
             maxHeight: '22px'
           },
-          background: 'rgb(0 0 0)', // Фон кнопки.
+          background: 'rgb(0, 0, 0)', // Фон кнопки.
           color: 'white', // Цвет текста кнопки.
           border: 'unset', // Бордер кнопки.
-          boxShadow: '0px 1px 0px 1px rgb(86 136 163)',
+          boxShadow: '0px 1px 0px 1px rgb(86, 136, 163)',
           borderRadius: '0px 0px 3px 0px', // Закругление углов кнопки.
           float: 'left', // "Плавание" кнопки. ДЕФОЛТ: 'left' (налево). Параметры: left/right.
           fontSize: '14px', // Размер шрифта.
@@ -210,8 +253,8 @@
           margin: '0px 5px 0px 1px', // Внешний отступ кнопки справа. ДЕФОЛТ: '0px 3px 0px 0px'. Т.е, 'Вниз Направо Вверх Налево'.
           padding: '3px', // Внутренний отступ кнопки.
           hover:{// Вид при наведении на кнопку.
-            background: 'rgb(75 75 75)',
-            color: 'rgb(212 255 251)'
+            background: 'rgb(75, 75, 75)',
+            color: 'rgb(212, 255, 251)'
           }
         },
         buttonImgDownload:{// Кнопка скачивания (сохранения) изображения.
@@ -219,10 +262,10 @@
             minHeight: '20px',
             maxHeight: '22px'
           },
-          background: 'rgb(0 0 0)',
+          background: 'rgb(0, 0, 0)',
           color: 'white',
           border: 'unset', // Бордер кнопки.
-          boxShadow: '0px 1px 0px 1px rgb(86 136 163)',
+          boxShadow: '0px 1px 0px 1px rgb(86, 136, 163)',
           borderRadius: '0px 0px 3px 3px',
           float: 'left',
           fontSize: '14px',
@@ -230,8 +273,8 @@
           margin: '0px 5px 0px 1px',
           padding: '3px',
           hover:{// Вид при наведении на кнопку.
-            background: 'rgb(75 75 75)',
-            color: 'rgb(212 255 251)'
+            background: 'rgb(75, 75, 75)',
+            color: 'rgb(212, 255, 251)'
           }
         },
         buttonSearch:{// Кнопка открытия меню поиска изображения. Список поисков настраивается выше в коде.
@@ -239,10 +282,10 @@
             minHeight: '20px',
             maxHeight: '22px'
           },
-          background: 'rgb(0 0 0)',
+          background: 'rgb(0, 0, 0)',
           color: 'white',
           border: 'unset', // Бордер кнопки.
-          boxShadow: '0px 1px 0px 1px rgb(86 136 163)',
+          boxShadow: '0px 1px 0px 1px rgb(86, 136, 163)',
           borderRadius: '0px 0px 3px 3px',
           float: 'left',
           fontSize: '14px',
@@ -250,8 +293,8 @@
           margin: '0px 5px 0px 1px',
           padding: '3px',
           hover:{// Вид при наведении на кнопку.
-            background: 'rgb(75 75 75)',
-            color: 'rgb(212 255 251)'
+            background: 'rgb(75, 75, 75)',
+            color: 'rgb(212, 255, 251)'
           }
         },
         buttonTurnOffZoom:{// Кнопка отключения РЕЖИМА ЗУМА (возврата к СТАНДАРТНОМУ РЕЖИМУ).
@@ -259,10 +302,10 @@
             minHeight: '20px',
             maxHeight: '22px'
           },
-          background: 'rgb(0 0 0)',
+          background: 'rgb(0, 0, 0)',
           color: 'white',
           border: 'unset', // Бордер кнопки.
-          boxShadow: '0px 1px 0px 1px rgb(86 136 163)',
+          boxShadow: '0px 1px 0px 1px rgb(86, 136, 163)',
           borderRadius: '0px 0px 3px 3px',
           float: 'left',
           fontSize: '14px',
@@ -270,8 +313,8 @@
           margin: '0px 5px 0px 1px',
           padding: '3px',
           hover:{// Вид при наведении на кнопку.
-            background: 'rgb(75 75 75)',
-            color: 'rgb(212 255 251)'
+            background: 'rgb(75, 75, 75)',
+            color: 'rgb(212, 255, 251)'
           }
         },
       },
@@ -304,7 +347,7 @@
     },
 
     // Настройки альбома.
-    album = {
+    albumCSS = {
       size:{// Размер альбома.
         maxWidth: 'unset', // Длина
         maxHeight: '400px' // Ширина
@@ -320,16 +363,18 @@
         borderRadius: '0px 0px 15px 0px',
         background: 'rgb(0, 0, 0)',
         color: 'rgb(255, 255, 255)',
-        boxShadow: '0px 0px 3px rgb(219 60 169), 0px 0px 3px 0px rgb(0 0 0)'
+        boxShadow: '0px 0px 3px rgb(219, 60, 169), 0px 0px 3px 0px rgb(0, 0, 0)'
       },
       list:{// Скроллбар итемов в альбоме.
         scrollbar:{
           sc:{// Сам скроллбар
             size:{
               width: '8px',
-              height: '8px'
+              height: '8px',
+              firefoxWidth: 'thin' // FIREFOX Толщина скроллбара. ДЕФОЛТ: 'thin'.
             },
-            background: 'rgb(235, 235, 235)'
+            background: 'rgb(235, 235, 235)',
+            firefoxColor: 'rgba(11, 20, 200, 0.6) rgb(205, 205, 235)' // FIREFOX Thumb/scrollbar цвета. ДЕФОЛТ: 'rgba(11, 20, 200, 0.6) rgb(235, 235, 235)'.
           },
           track:{// Трэк, т.е. то, по чему ездит тумб.
             background: 'rgb(205, 205, 235)',
@@ -346,11 +391,11 @@
             }
           },
           thumb:{// Тумб, т.е. то, благодаря чему осуществляется навигация по скроллбару, т.е его подвижная часть.
-            background: 'rgba(11 20 200 / 0.6)',
-            border: '1px solid rgba(10 20 200 / 0.40)',
+            background: 'rgba(11, 20, 200, 0.6)',
+            border: '1px solid rgba(10, 20, 200, 0.40)',
             borderRadius: '18px',
             hover: {// Вид при наведении на тумб.
-              background: 'rgba(11 40 220 / 0.6)'
+              background: 'rgba(11, 40, 220, 0.6)'
             }
           },
           corner:{// Угол скроллбара, где встречаются горизонтальный и вертикальный скроллбары.
@@ -382,7 +427,7 @@
           fontSize: '13px',
           fontWeight: '500',
           lineHeight: '13px',
-          border: '2px solid rgb(64 63 63)',
+          border: '2px solid rgb(64, 63, 63)',
           borderRadius: '6px',
           padding: '3px 3px 3px 3px',
           margin: '0px 0px 0px 0px'
@@ -400,7 +445,7 @@
           fontSize: '13px',
           fontWeight: '500',
           lineHeight: '13px',
-          border: '2px solid rgb(64 63 63)',
+          border: '2px solid rgb(64, 63, 63)',
           borderRadius: '6px',
           padding: '3px 3px 3px 3px',
           margin: '0px 0px 0px 0px'
@@ -418,7 +463,7 @@
           fontSize: '13px',
           fontWeight: '500',
           lineHeight: '13px',
-          border: '2px solid rgb(64 63 63)',
+          border: '2px solid rgb(64, 63, 63)',
           borderRadius: '6px',
           padding: '3px 3px 3px 3px',
           margin: '0px 0px 0px 0px'
@@ -438,7 +483,7 @@
           fontSize: '13px',
           fontWeight: '500',
           lineHeight: '13px',
-          border: '2px solid rgb(64 63 63)',
+          border: '2px solid rgb(64, 63, 63)',
           borderRadius: '6px',
           padding: '3px 3px 3px 3px',
           margin: '0px 0px 0px 0px'
@@ -457,7 +502,7 @@
           fontSize: '13px',
           fontWeight: '500',
           lineHeight: '13px',
-          border: '2px solid rgb(64 63 63)',
+          border: '2px solid rgb(64, 63, 63)',
           borderRadius: '6px',
           padding: '3px 3px 3px 3px',
           margin: '0px 0px 0px 0px',
@@ -476,7 +521,7 @@
             fontSize: '13px',
             fontWeight: '500',
             lineHeight: '13px',
-            border: '1px solid rgb(64 63 63)',
+            border: '1px solid rgb(64, 63, 63)',
             borderRadius: '0px',
             padding: '3px 3px 3px 3px',
             margin: '0px 0px 3px 0px',
@@ -573,7 +618,7 @@
             border: '1px solid black',
             zIndex: '2',
             hover:{
-              background: 'rgb(225 22 22 / 50%)',
+              background: 'rgba(225, 22, 22, 0.50)',
               cursor: 'pointer'
             }
           }
@@ -582,9 +627,11 @@
           sc:{// Сам скроллбар
             size:{
               width: '8px',
-              height: '8px'
+              height: '8px',
+              firefoxWidth: 'thin' // FIREFOX Толщина скроллбара. ДЕФОЛТ: 'thin'.
             },
-            background: 'rgb(235, 235, 235)'
+            background: 'rgb(235, 235, 235)',
+            firefoxColor: 'rgba(11, 20, 200, 0.6) rgb(205, 205, 235)' // FIREFOX Thumb/scrollbar цвета. ДЕФОЛТ: 'rgba(11, 20, 200, 0.6) rgb(235, 235, 235)'.
           },
           track:{// Трэк, т.е. то, по чему ездит тумб.
             background: 'rgb(205, 205, 235)',
@@ -601,11 +648,11 @@
             }
           },
           thumb:{// Тумб, т.е. то, благодаря чему осуществляется навигация по скроллбару, т.е его подвижная часть.
-            background: 'rgba(11 20 200 / 0.6)',
-            border: '1px solid rgba(10 20 200 / 0.40)',
+            background: 'rgba(11, 20, 200, 0.6)',
+            border: '1px solid rgba(10, 20, 200, 0.40)',
             borderRadius: '18px',
             hover: {// Вид при наведении на тумб.
-              background: 'rgba(11 40 220 / 0.6)'
+              background: 'rgba(11, 40, 220, 0.6)'
             }
           },
           corner:{// Угол скроллбара, где встречаются горизонтальный и вертикальный скроллбары.
@@ -635,12 +682,12 @@
         fontSize: '13px',
         lineHeight: '13px',
         padding: '3px',
-        border: '1px solid rgb(157 154 154)',
+        border: '1px solid rgb(157, 154, 154)',
         borderRadius: '3px',
         top: '22px',
         margin: '0px 5px 0px 0px',
         hover:{
-          background: 'rgb(72 72 72)',
+          background: 'rgb(72, 72, 72)',
           cursor: 'pointer'
         }
       },
@@ -653,12 +700,12 @@
         fontSize: '13px',
         lineHeight: '13px',
         padding: '3px',
-        border: '1px solid rgb(157 154 154)',
+        border: '1px solid rgb(157, 154, 154)',
         borderRadius: '3px',
         top: '22px',
         margin: '0px 5px 10px 0px',
         hover:{
-          background: 'rgb(72 72 72)',
+          background: 'rgb(72, 72, 72)',
           cursor: 'pointer'
         }
       },
@@ -671,12 +718,12 @@
         fontSize: '13px',
         lineHeight: '13px',
         padding: '3px',
-        border: '1px solid rgb(157 154 154)',
+        border: '1px solid rgb(157, 154, 154)',
         borderRadius: '3px',
         top: '22px',
         margin: '0px 5px 10px 0px',
         hover:{
-          background: 'rgb(72 72 72)',
+          background: 'rgb(72, 72, 72)',
           cursor: 'pointer'
         }
       }
@@ -734,27 +781,27 @@ class ButtonCreateAlbum{
         if(e.target.nextElementSibling.classList.value.match(/figure-gallery/)){
             if(!e.target.nextElementSibling.style.display){
                 if(e.target.nextElementSibling.querySelector(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)){
-                    console.log('Album is founded');
+                    console.log('Album is founded');
                     let album = new Album({
                       where: e.target.nextElementSibling.nextElementSibling,
                       target: e.target.nextElementSibling
                     });
                     let artsN = 0;
 
-                    for(let i = 0, arr = JSON.parse(e.target.nextElementSibling.querySelector(`textarea[name='gallery-data-holder']`).textContent.trim()); i < arr.length; i++){
-                        if(arr[i].image.type === 'image'){
-                            new AlbumItem({
-                                imgUrl: `https://leonardo.osnova.io/${arr[i].image.data.uuid}`,
+                    for(let i = 0, arr = JSON.parse(e.target.nextElementSibling.querySelector(`textarea[name='gallery-data-holder']`).textContent.trim()); i < arr.length; i++){
+                        if(arr[i].image.type === 'image'){
+                            new AlbumItem({
+                                imgUrl: `https://leonardo.osnova.io/${arr[i].image.data.uuid}`,
                                 imgSize: arr[i].image.size,
                                 imgTitle: `${arr[i].title}`,
-                                target: album.list
-                            })
+                                target: album.list
+                            })
                           artsN++;
-                        }
+                        }
                       if(i+1 === arr.length){
                           album.info.textContent = artsN;
                       }
-                   }
+                   }
 
                }
               e.target.nextElementSibling.style.display = 'none';
@@ -841,7 +888,7 @@ class CreateAlbumButtonMerged{
                   returnAlbums[r].style.display = '';
               }
           }
-          if(mode.main.active && !mode.main.auto || mode.main.active && mode.main.auto && mode.main.buttons){
+          if(cfg.main.active && !cfg.main.auto || cfg.main.active && cfg.main.auto && cfg.main.buttons){
             console.log('I see you');
               for(let r = 0, returnAlbumButtons = document.querySelectorAll(`button[class='dtf-album-button-create']`); r < returnAlbumButtons.length; r++){
                   if(returnAlbumButtons[r].style.display === 'none'){
@@ -1018,18 +1065,18 @@ class SearchMenuItem{
 }
 
 class AlbumItem{
-  constructor({imgUrl, imgSize, imgLinks, imgTitle, target}){
+  constructor({imgUrl, imgSize, imgLinks, imgTitle, target}){
     this.e=document.createElement('div');
-    this.e.className='album-item';
-    this.e.setAttribute('tabindex', '-1');
-    target.appendChild(this.e);
+    this.e.className='album-item';
+    this.e.setAttribute('tabindex', '-1');
+    target.appendChild(this.e);
 
     this.bContainer=document.createElement('div');
-    this.bContainer.className='album-item-buttonContainer';
-    this.e.appendChild(this.bContainer);
+    this.bContainer.className='album-item-buttonContainer';
+    this.e.appendChild(this.bContainer);
 
     this.bCopyLink=document.createElement('button');
-    this.bCopyLink.className='album-item-button-copyLink';
+    this.bCopyLink.className='album-item-button-copyLink';
     this.bCopyLink.textContent = buttonsText.copyLink;
     this.bCopyLink.onclick = async function(e){
         navigator.clipboard.writeText(e.target.parentNode.nextElementSibling.src);
@@ -1041,7 +1088,7 @@ class AlbumItem{
           timer: 4000
         });
     }
-    this.bContainer.appendChild(this.bCopyLink);
+    this.bContainer.appendChild(this.bCopyLink);
 
     this.dImgDownload=document.createElement('button');
     this.dImgDownload.className='album-item-button-download';
@@ -1071,7 +1118,7 @@ class AlbumItem{
     this.bContainer.appendChild(this.dImgDownload);
 
     this.bImgSearch=document.createElement('button');
-    this.bImgSearch.className='album-item-button-imgSearch';
+    this.bImgSearch.className='album-item-button-imgSearch';
     this.bImgSearch.textContent = buttonsText.searchImage;
     this.bImgSearch.onclick = function(ev){
         let menu = new SearchMenu({
@@ -1081,162 +1128,163 @@ class AlbumItem{
         })
         menu.focus();
     }
-    this.bContainer.appendChild(this.bImgSearch);
+    this.bContainer.appendChild(this.bImgSearch);
 
     this.bTurnOffZoom=document.createElement('button');
-    this.bTurnOffZoom.className='album-item-button-turnOffZoom';
+    this.bTurnOffZoom.className='album-item-button-turnOffZoom';
     this.bTurnOffZoom.textContent = buttonsText.turnOffZoom;
     this.bTurnOffZoom.onclick = function(e){
         if(focused){
             if(focused.classList.value.match(/zoomed/)){
                 focused.scrollTo(0, 0);
-                focused.children[1].style.zoom = '100%';
+                zooming('setZoom', focused.children[1]);
                 focused.classList.remove('zoomed');
             }
-            imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
-        }
+            imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
+        }
     }
-    this.bContainer.appendChild(this.bTurnOffZoom);
+    this.bContainer.appendChild(this.bTurnOffZoom);
 
-    this.i=document.createElement('img');
-    this.i.className='item-image';
-    this.i.src=imgUrl;
+    this.i=document.createElement('img');
+    this.i.className='item-image';
+    this.i.src=imgUrl;
     if(imgSize) this.i.setAttribute('imgSize', imgSize);
     if(imgLinks) this.i.setAttribute('imgLinks', imgLinks);
     if(imgTitle) this.i.setAttribute('imgTitle', imgTitle);
     this.i.loading = 'lazy';
-    this.i.style.zoom = '100%';
-    this.i.onwheel = function(s){
-        if(focused && button1Pressed){
-            s.preventDefault();
-            s.stopImmediatePropagation();
-            if(s.target.parentNode.classList.value.match(/picked/) && !s.target.parentNode.classList.value.match(/zoomed/)){
-                // s.preventDefault();
-                // s.stopImmediatePropagation();
-                s.target.parentNode.classList.add('zoomed');
-            }else
-            if(s.target.parentNode.classList.value.match(/picked/) && s.target.parentNode.classList.value.match(/zoomed/)){
-              console.log(s)
-                // s.preventDefault();
-                // s.stopImmediatePropagation();
-                if(s.deltaY < 0 && button1Pressed){
-                    if(!s.target.style.zoom){
-                        s.target.style.zoom = `125%`;
-                        if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
-                    }else
-                    if(s.target.style.zoom){
-                        s.target.style.zoom = `${+s.target.style.zoom.replace('%', '') + 25}%`;
-                        if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
-                    }
-                }else
-                if(s.deltaY > 0 && button1Pressed){
-                    if(!s.target.style.zoom){
-                        s.target.style.zoom = `75%`;
-                        if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
-                    }else
-                    if(s.target.style.zoom){
-                        if(+s.target.style.zoom.replace('%', '') > 25){
-                            s.target.style.zoom = `${+s.target.style.zoom.replace('%', '') - 25}%`;
-                            if(mode.smartZoom) focused.scrollTo(s.x, s.y);
-                            imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${s.target.style.zoom}`;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    this.e.appendChild(this.i);
+    //this.i.style.transform = 'scale(1.00)';
+    zooming('setZoom', this.i);
+//     this.i.onwheel = function(s){
+//         if(focused && button1Pressed && 10){
+//             s.preventDefault();
+//             s.stopImmediatePropagation();
+//             if(s.target.parentNode.classList.value.match(/picked/) && !s.target.parentNode.classList.value.match(/zoomed/)){
+//                 // s.preventDefault();
+//                 // s.stopImmediatePropagation();
+//                 s.target.parentNode.classList.add('zoomed');
+//             }else
+//             if(s.target.parentNode.classList.value.match(/picked/) && s.target.parentNode.classList.value.match(/zoomed/)){
+//               console.log(s)
+//                 // s.preventDefault();
+//                 // s.stopImmediatePropagation();
+//                 if(s.deltaY < 0 && button1Pressed){
+//                     if(!s.target.style.transform){
+//                         s.target.style.transform = `scale(1.25)`;
+//                         if(cfg.smartZoom) focused.scrollTo(s.x, s.y);
+//                         imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${s.target.style.transform}${imagePreviewerElements.zoomLevel.x}`;
+//                     }else
+//                     if(s.target.style.transform){
+//                         s.target.style.transform = `scale(${+s.target.style.transform.replace(/scale\(([0-9.]+)\)/, '$1') + 0.25})`;
+//                         if(cfg.smartZoom) focused.scrollTo(s.x, s.y);
+//                         imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${s.target.style.transform}${imagePreviewerElements.zoomLevel.x}`;
+//                     }
+//                 }else
+//                 if(s.deltaY > 0 && button1Pressed){
+//                     if(!s.target.style.transform){
+//                         s.target.style.transform = `scale(0.75)`;
+//                         if(cfg.smartZoom) focused.scrollTo(s.x, s.y);
+//                         imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${s.target.style.transform}${imagePreviewerElements.zoomLevel.x}`;
+//                     }else
+//                     if(s.target.style.transform){
+//                         if(+s.target.style.transform.replace(/scale\(([0-9.]+)\)/, '$1') > 0.25){
+//                             s.target.style.transform = `scale(${+s.target.style.transform.replace(/scale\(([0-9.]+)\)/, '$1') - 0.25})`;
+//                             if(cfg.smartZoom) focused.scrollTo(s.x, s.y);
+//                             imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${s.target.style.transform}${imagePreviewerElements.zoomLevel.x}`;
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+    this.e.appendChild(this.i);
 
-    return this.i;
-  }
+    return this.i;
+  }
 }
 class AlbumPreview{
-  constructor({previewer, target}){
-    this.a=document.createElement('div');
-    this.a.className='albumPreview-field';
-    this.a.setAttribute('tabindex', '-1');
-    target.appendChild(this.a);
+  constructor({previewer, target}){
+    this.a=document.createElement('div');
+    this.a.className='albumPreview-field';
+    this.a.setAttribute('tabindex', '-1');
+    target.appendChild(this.a);
 
-    this.bL=document.createElement('button');
-    this.bL.className = 'albumPreview-nav-previous-button';
+    this.bL=document.createElement('button');
+    this.bL.className = 'albumPreview-nav-previous-button';
     this.bL.textContent=buttonsText.previous;
-    this.bL.onclick = function(){
-        if(focused){
-            if(focused.previousElementSibling){
+    this.bL.onclick = function(){
+        if(focused){
+            if(focused.previousElementSibling){
                 if(focused.classList.value.match(/zoomed/)){
                     focused.scrollTo(0, 0);
-                    focused.children[1].style.zoom = '100%';
+                    zooming('setZoom', focused.children[1]);
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
                 focused.classList.remove('picked');
-                focused.previousElementSibling.focus();
-            }else
+                focused.previousElementSibling.focus();
+            }else
             if(!focused.previousElementSibling){
                 if(focused.classList.value.match(/zoomed/)){
                     focused.scrollTo(0, 0);
-                    focused.children[1].style.zoom = '100%';
+                    zooming('setZoom', focused.children[1]);
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
                 focused.classList.remove('picked');
-                focused.parentNode.children[focused.parentNode.children.length-1].focus();
-            }
-        }
-    }
-    this.a.appendChild(this.bL)
+                focused.parentNode.children[focused.parentNode.children.length-1].focus();
+            }
+        }
+    }
+    this.a.appendChild(this.bL)
 
-    this.bR=document.createElement('button');
-    this.bR.className = 'albumPreview-nav-next-button';
+    this.bR=document.createElement('button');
+    this.bR.className = 'albumPreview-nav-next-button';
     this.bR.textContent=buttonsText.next;
-    this.bR.onclick = function(){
-        if(focused){
-            if(focused.nextElementSibling){
+    this.bR.onclick = function(){
+        if(focused){
+            if(focused.nextElementSibling){
                 if(focused.classList.value.match(/zoomed/)){
                     focused.scrollTo(0, 0);
-                    focused.children[1].style.zoom = '100%';
+                    zooming('setZoom', focused.children[1]);
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
                 focused.classList.remove('picked');
-                focused.nextElementSibling.focus();
-            }else
+                focused.nextElementSibling.focus();
+            }else
             if(!focused.nextElementSibling){
                 if(focused.classList.value.match(/zoomed/)){
                     focused.scrollTo(0, 0);
-                    focused.children[1].style.zoom = '100%';
+                    zooming('setZoom', focused.children[1]);
                     focused.classList.remove('zoomed');
                 }
-                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+                imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
                 focused.classList.remove('picked');
-                focused.parentNode.children[0].focus();
-            }
-        }
-    }
-    this.a.appendChild(this.bR);
+                focused.parentNode.children[0].focus();
+            }
+        }
+    }
+    this.a.appendChild(this.bR);
 
     this.imgCount=document.createElement('div');
-    this.imgCount.className='albumPreview-field-imgCount';
-    this.imgCount.textContent = '';
-    this.a.appendChild(this.imgCount);
+    this.imgCount.className='albumPreview-field-imgCount';
+    this.imgCount.textContent = '';
+    this.a.appendChild(this.imgCount);
 
     this.imgInfo=document.createElement('div');
-    this.imgInfo.className='albumPreview-field-imgInfo';
-    this.imgInfo.textContent = '';
-    this.a.appendChild(this.imgInfo);
+    this.imgInfo.className='albumPreview-field-imgInfo';
+    this.imgInfo.textContent = '';
+    this.a.appendChild(this.imgInfo);
 
     this.imgZoom=document.createElement('div');
-    this.imgZoom.className='albumPreview-field-imgZoom';
-    this.imgZoom.textContent = '';
-    this.a.appendChild(this.imgZoom);
+    this.imgZoom.className='albumPreview-field-imgZoom';
+    this.imgZoom.textContent = '';
+    this.a.appendChild(this.imgZoom);
 
     this.imgTitle=document.createElement('div');
-    this.imgTitle.className='albumPreview-field-imgTitle';
-    this.imgTitle.textContent = 'Links:';
-    this.a.appendChild(this.imgTitle);
+    this.imgTitle.className='albumPreview-field-imgTitle';
+    this.imgTitle.textContent = 'Links:';
+    this.a.appendChild(this.imgTitle);
 
     this.imgLinksField=document.createElement('div');
     this.imgLinksField.className='albumPreview-field-imgLinksField';
@@ -1252,7 +1300,7 @@ class AlbumPreview{
     this.imgLinksField.appendChild(this.imgLinksList);
 
     this.buttonClose=document.createElement('button');
-    this.buttonClose.className = 'albumPreview-nav-close-button';
+    this.buttonClose.className = 'albumPreview-nav-close-button';
     this.buttonClose.textContent=buttonsText.close;
     this.buttonClose.onclick = function(e){
       if(focused){
@@ -1267,7 +1315,8 @@ class AlbumPreview{
           document.body.classList.remove('blockScroll');
           if(focused.classList.value.match(/zoomed/)){
               focused.scrollTo(0, 0);
-              focused.children[1].style.zoom = '100%';
+              zooming('setZoom', focused.children[1]);
+              //zooming('getZoom', focused.children[1]);
               focused.classList.remove('zoomed');
           }
           focused.blur();
@@ -1277,11 +1326,11 @@ class AlbumPreview{
     }
     this.a.appendChild(this.buttonClose);
 
-    return {main:this.a, count:this.imgCount, info:this.imgInfo, zoom:this.imgZoom, title:this.imgTitle, imgLinks:this.imgLinksList};
-  }
+    return {main:this.a, count:this.imgCount, info:this.imgInfo, zoom:this.imgZoom, title:this.imgTitle, imgLinks:this.imgLinksList};
+  }
 }
 class ImgLinksItem{
-  constructor({href, target}){
+  constructor({href, target}){
     this.i=document.createElement('a');
     this.i.textContent=href.replace(/(http|https):\/\/([^/]+).*/gm, '$2');
     this.i.href=href;
@@ -1307,117 +1356,129 @@ body.blockScroll {
 }
 
 .dtf-album-alert {
-  background: ${main.alert.background};
-  color: ${main.alert.color};
-  font-size: ${main.alert.fontSize};
-  font-weight: ${main.alert.fontWeight};
-  line-height: ${main.alert.lineHeight};
-  width: ${main.alert.size.width};
-  height: ${main.alert.size.height};
-  border: ${main.alert.border};
-  border-radius: ${main.alert.borderRadius};
-  padding: ${main.alert.padding};
+  background: ${mainCSS.alert.background};
+  color: ${mainCSS.alert.color};
+  font-size: ${mainCSS.alert.fontSize};
+  font-weight: ${mainCSS.alert.fontWeight};
+  line-height: ${mainCSS.alert.lineHeight};
+  width: ${mainCSS.alert.size.width};
+  height: ${mainCSS.alert.size.height};
+  border: ${mainCSS.alert.border};
+  border-radius: ${mainCSS.alert.borderRadius};
+  padding: ${mainCSS.alert.padding};
   position: fixed;
-  z-index: ${main.alert.zIndex};
+  z-index: ${mainCSS.alert.zIndex};
 }
 
 .dtf-album-buttonContainer {
   display: flex;
   justify-content: center;
+  -webkit-justify-content: center;
 }
 
 .dtf-album-button-create {
-  max-height: ${album.albumCreatingBtn.size.maxHeight};
-  background: ${album.albumCreatingBtn.background};
-  color: ${album.albumCreatingBtn.color};
-  font-size: ${album.albumCreatingBtn.fontSize};
-  line-height: ${album.albumCreatingBtn.lineHeight};
-  padding: ${album.albumCreatingBtn.padding};
-  border: ${album.albumCreatingBtn.border};
-  border-radius: ${album.albumCreatingBtn.borderRadius};
+  max-height: ${albumCSS.albumCreatingBtn.size.maxHeight};
+  background: ${albumCSS.albumCreatingBtn.background};
+  color: ${albumCSS.albumCreatingBtn.color};
+  font-size: ${albumCSS.albumCreatingBtn.fontSize};
+  line-height: ${albumCSS.albumCreatingBtn.lineHeight};
+  padding: ${albumCSS.albumCreatingBtn.padding};
+  border: ${albumCSS.albumCreatingBtn.border};
+  border-radius: ${albumCSS.albumCreatingBtn.borderRadius};
   position: relative;
-  top: ${album.albumCreatingBtn.top};
-  margin: ${album.albumCreatingBtn.margin};
+  top: ${albumCSS.albumCreatingBtn.top};
+  margin: ${albumCSS.albumCreatingBtn.margin};
 }
 .dtf-album-button-create:hover {
-  background: ${album.albumCreatingBtn.hover.background};
-  cursor: ${album.albumCreatingBtn.hover.cursor};
+  background: ${albumCSS.albumCreatingBtn.hover.background};
+  cursor: ${albumCSS.albumCreatingBtn.hover.cursor};
 }
 
 .dtf-album-button-create-merge {
-  max-height: ${album.albumCreatingMergeBtn.size.maxHeight};
-  background: ${album.albumCreatingMergeBtn.background};
-  color: ${album.albumCreatingMergeBtn.color};
-  font-size: ${album.albumCreatingMergeBtn.fontSize};
-  line-height: ${album.albumCreatingMergeBtn.lineHeight};
-  padding: ${album.albumCreatingMergeBtn.padding};
-  border: ${album.albumCreatingMergeBtn.border};
-  border-radius: ${album.albumCreatingMergeBtn.borderRadius};
+  max-height: ${albumCSS.albumCreatingMergeBtn.size.maxHeight};
+  background: ${albumCSS.albumCreatingMergeBtn.background};
+  color: ${albumCSS.albumCreatingMergeBtn.color};
+  font-size: ${albumCSS.albumCreatingMergeBtn.fontSize};
+  line-height: ${albumCSS.albumCreatingMergeBtn.lineHeight};
+  padding: ${albumCSS.albumCreatingMergeBtn.padding};
+  border: ${albumCSS.albumCreatingMergeBtn.border};
+  border-radius: ${albumCSS.albumCreatingMergeBtn.borderRadius};
   position: relative;
-  top: ${album.albumCreatingMergeBtn.top};
-  margin: ${album.albumCreatingMergeBtn.margin};
+  top: ${albumCSS.albumCreatingMergeBtn.top};
+  margin: ${albumCSS.albumCreatingMergeBtn.margin};
 }
 .dtf-album-button-create-merge:hover {
-  background: ${album.albumCreatingMergeBtn.hover.background};
-  cursor: ${album.albumCreatingMergeBtn.hover.cursor};
+  background: ${albumCSS.albumCreatingMergeBtn.hover.background};
+  cursor: ${albumCSS.albumCreatingMergeBtn.hover.cursor};
 }
 
 .dtf-album-button-create-compilation {
-  max-height: ${album.compilationToAlbumBtn.size.maxHeight};
-  background: ${album.compilationToAlbumBtn.background};
-  color: ${album.compilationToAlbumBtn.color};
-  font-size: ${album.compilationToAlbumBtn.fontSize};
-  line-height: ${album.compilationToAlbumBtn.lineHeight};
-  padding: ${album.compilationToAlbumBtn.padding};
-  border: ${album.compilationToAlbumBtn.border};
-  border-radius: ${album.compilationToAlbumBtn.borderRadius};
+  max-height: ${albumCSS.compilationToAlbumBtn.size.maxHeight};
+  background: ${albumCSS.compilationToAlbumBtn.background};
+  color: ${albumCSS.compilationToAlbumBtn.color};
+  font-size: ${albumCSS.compilationToAlbumBtn.fontSize};
+  line-height: ${albumCSS.compilationToAlbumBtn.lineHeight};
+  padding: ${albumCSS.compilationToAlbumBtn.padding};
+  border: ${albumCSS.compilationToAlbumBtn.border};
+  border-radius: ${albumCSS.compilationToAlbumBtn.borderRadius};
   position: relative;
-  top: ${album.compilationToAlbumBtn.top};
-  margin: ${album.compilationToAlbumBtn.margin};
+  top: ${albumCSS.compilationToAlbumBtn.top};
+  margin: ${albumCSS.compilationToAlbumBtn.margin};
 }
 .dtf-album-button-create-compilation:hover {
-  background: ${album.compilationToAlbumBtn.hover.background};
-  cursor: ${album.compilationToAlbumBtn.hover.cursor};
+  background: ${albumCSS.compilationToAlbumBtn.hover.background};
+  cursor: ${albumCSS.compilationToAlbumBtn.hover.cursor};
 }
 
 .dtf-album, .dtf-album-merged, .dtf-album-compilation {
-  padding: ${album.padding};
-  box-shadow: ${album.boxShadow};
-  margin: ${album.margin};
+  padding: ${albumCSS.padding};
+  box-shadow: ${albumCSS.boxShadow};
+  -webkit-box-shadow: ${albumCSS.boxShadow};
+  margin: ${albumCSS.margin};
 }
 
 .album-info {
   display: block;
   position: absolute;
-  background: ${album.info.background};
-  color: ${album.info.color};
-  font-size: ${album.info.fontSize};
-  line-height: ${album.info.lineHeight};
-  margin: ${album.info.margin};
-  padding: ${album.info.padding};
-  border-radius: ${album.info.borderRadius};
-  box-shadow: ${album.info.boxShadow};
+  background: ${albumCSS.info.background};
+  color: ${albumCSS.info.color};
+  font-size: ${albumCSS.info.fontSize};
+  line-height: ${albumCSS.info.lineHeight};
+  margin: ${albumCSS.info.margin};
+  padding: ${albumCSS.info.padding};
+  border-radius: ${albumCSS.info.borderRadius};
+  box-shadow: ${albumCSS.info.boxShadow};
+  -webkit-box-shadow: ${albumCSS.info.boxShadow};
+  z-index: 1;
+}
+
+.dtf-album:hover .album-info, .dtf-album-merged:hover .album-info, .dtf-album-compilation:hover .album-info {
+    opacity: ${mainCSS.albums.info.hover.opacity};
 }
 
 .album-items-list {
   display: grid;
-  grid-template-columns: repeat(${albumItems.itemsInColumn}, auto);
-  grid-template-rows: ${albumItems.rowsTemplate};
-  grid-gap: ${albumItems.gap};
-  max-height: ${album.size.maxHeight};
+  grid-template-columns: repeat(${albumItemsCSS.itemsInColumn}, auto);
+  grid-template-rows: ${albumItemsCSS.rowsTemplate};
+  grid-gap: ${albumItemsCSS.gap};
+  max-height: ${albumCSS.size.maxHeight};
   overflow: auto;
   text-align: center;
   justify-content: center;
-  padding: ${albumItems.padding};
-  overscroll-behavior: ${main.albums.overscroll};
+  -webkit-justify-content: center;
+  padding: ${albumItemsCSS.padding};
+  overscroll-behavior: ${mainCSS.albums.overscroll};
+
+  scrollbar-width: ${albumCSS.list.scrollbar.sc.size.firefoxWidth};
+  scrollbar-color: ${albumCSS.list.scrollbar.sc.firefoxColor};
 }
 
 .dtf-album.preview-opened:after, .dtf-album-merged.preview-opened:after, .dtf-album-compilation.preview-opened:after {
   content: '';
   display: block;
-  width: -webkit-fill-available;
-  height: -webkit-fill-available;
-  background: ${album.preview.background};
+  width: 100%;
+  height: 100%;
+  background: ${albumCSS.preview.background};
   position: fixed;
   top: 0;
   left: 0;
@@ -1425,70 +1486,78 @@ body.blockScroll {
 }
 
 .album-items-list::-webkit-scrollbar {
-  width: ${album.list.scrollbar.sc.size.width};
-  height: ${album.list.scrollbar.sc.size.height};
-  background: ${album.list.scrollbar.sc.background};
+  width: ${albumCSS.list.scrollbar.sc.size.width};
+  height: ${albumCSS.list.scrollbar.sc.size.height};
+  background: ${albumCSS.list.scrollbar.sc.background};
 }
 .album-items-list::-webkit-scrollbar-track {
-  background: ${album.list.scrollbar.track.background};
-  border-radius: ${album.list.scrollbar.track.borderRadius};
-  margin: ${album.list.scrollbar.track.margin};
+  background: ${albumCSS.list.scrollbar.track.background};
+  border-radius: ${albumCSS.list.scrollbar.track.borderRadius};
+  margin: ${albumCSS.list.scrollbar.track.margin};
 }
 .album-items-list::-webkit-scrollbar-track-piece {
-  background: ${album.list.scrollbar.trackPiece.background};
-  border: ${album.list.scrollbar.trackPiece.border};
-  border-radius: ${album.list.scrollbar.trackPiece.borderRadius};
-  width: ${album.list.scrollbar.trackPiece.size.width};
-  height: ${album.list.scrollbar.trackPiece.size.height};
+  background: ${albumCSS.list.scrollbar.trackPiece.background};
+  border: ${albumCSS.list.scrollbar.trackPiece.border};
+  border-radius: ${albumCSS.list.scrollbar.trackPiece.borderRadius};
+  width: ${albumCSS.list.scrollbar.trackPiece.size.width};
+  height: ${albumCSS.list.scrollbar.trackPiece.size.height};
 }
 .album-items-list::-webkit-scrollbar-thumb {
-  background: ${album.list.scrollbar.thumb.background};
-  border: ${album.list.scrollbar.thumb.border};
-  border-radius: ${album.list.scrollbar.thumb.borderRadius};
+  background: ${albumCSS.list.scrollbar.thumb.background};
+  border: ${albumCSS.list.scrollbar.thumb.border};
+  border-radius: ${albumCSS.list.scrollbar.thumb.borderRadius};
 }
 .album-items-list::-webkit-scrollbar-thumb:hover {
-  background: ${album.list.scrollbar.thumb.hover.background};
+  background: ${albumCSS.list.scrollbar.thumb.hover.background};
 }
 .album-items-list::-webkit-scrollbar-corner {
-  background: ${album.list.scrollbar.corner.background};
+  background: ${albumCSS.list.scrollbar.corner.background};
 }
 
 .album-item {
-  width: ${albumItems.size.width};
-  height: ${albumItems.size.height};
-  background: ${albumItems.background};
+  width: ${albumItemsCSS.size.width};
+  height: ${albumItemsCSS.size.height};
+  background: ${albumItemsCSS.background};
   text-align: center;
-  box-shadow: ${albumItems.boxShadow};
-  border-radius: ${albumItems.borderRadius};
+  box-shadow: ${albumItemsCSS.boxShadow};
+  -webkit-box-shadow: ${albumItemsCSS.boxShadow};
+  border-radius: ${albumItemsCSS.borderRadius};
   overflow: hidden;
   display: block;
   justify-content: center;
+  -webkit-justify-content: center;
   align-content: center;
 }
 .album-item:not(.album-item.picked, .album-item.picked.zoomed):hover {
-    box-shadow: ${albumItems.hover.boxShadow};
-    cursor: ${albumItems.hover.cursor};
-    filter: ${albumItems.hover.filter};
+    box-shadow: ${albumItemsCSS.hover.boxShadow};
+    -webkit-box-shadow: ${albumItemsCSS.hover.boxShadow};
+    cursor: ${albumItemsCSS.hover.cursor};
+    filter: ${albumItemsCSS.hover.filter};
+    z-index: ${albumItemsCSS.hover.zIndex};
 }
 
 .album-item:not(.album-item.picked, .album-item.zoomed) img {
-  max-width: ${albumItems.image.size.maxWidth};
-  max-height: ${albumItems.image.size.maxHeight};
-  margin: ${albumItems.image.margin};
+  max-width: ${albumItemsCSS.image.size.maxWidth};
+  max-height: ${albumItemsCSS.image.size.maxHeight};
+  margin: ${albumItemsCSS.image.margin};
 }
 
 .album-item.picked {
-  background: ${albumItems.background};
+  background: ${albumItemsCSS.background};
   outline: unset;
-  width: ${album.preview.size.width};
-  height: ${album.preview.size.height};
+  width: ${albumCSS.preview.size.width};
+  height: ${albumCSS.preview.size.height};
   position: fixed;
   z-index: 1000;
-  top: ${album.preview.position.top};
-  left: ${album.preview.position.left};
-  box-shadow: ${album.preview.boxShadow};
+  top: ${albumCSS.preview.position.top};
+  left: ${albumCSS.preview.position.left};
+  box-shadow: ${albumCSS.preview.boxShadow};
+  -webkit-box-shadow: ${albumCSS.preview.boxShadow};
   display: grid;
   overflow: hidden;
+
+  scrollbar-width: ${albumCSS.preview.scrollbar.sc.size.firefoxWidth};
+  scrollbar-color: ${albumCSS.preview.scrollbar.sc.firefoxColor};
 }
 
 .album-item.picked .album-item-buttonContainer {
@@ -1497,21 +1566,22 @@ body.blockScroll {
 }
 
 .album-item.picked img {
-  max-width: ${album.preview.size.width};
-  max-height: ${album.preview.size.height};
+  max-width: ${albumCSS.preview.size.width};
+  max-height: ${albumCSS.preview.size.height};
   z-index: 1000;
 }
 
 .album-item.picked.zoomed {
-  background: ${album.previewZoomed.background};
+  background: ${albumCSS.previewZoomed.background};
   outline: unset;
-  width: ${album.previewZoomed.size.width};
-  height: ${album.previewZoomed.size.height};
+  width: ${albumCSS.previewZoomed.size.width};
+  height: ${albumCSS.previewZoomed.size.height};
   position: fixed;
   z-index: 1000;
-  top: ${album.previewZoomed.position.top};
-  left: ${album.previewZoomed.position.left};
-  box-shadow: ${album.previewZoomed.boxShadow};
+  top: ${albumCSS.previewZoomed.position.top};
+  left: ${albumCSS.previewZoomed.position.left};
+  box-shadow: ${albumCSS.previewZoomed.boxShadow};
+  -webkit-box-shadow: ${albumCSS.previewZoomed.boxShadow};
   display: block;
   overflow: scroll;
   align-content: stretch;
@@ -1520,7 +1590,7 @@ body.blockScroll {
 .album-item.picked.zoomed .album-item-buttonContainer {
   z-index: 1001;
   position: fixed;
-  width: calc(${album.preview.size.width} - ${albumItems.buttonContainerZoomed.widthMinusSize});
+  width: calc(${albumCSS.preview.size.width} - ${albumItemsCSS.buttonContainerZoomed.widthMinusSize});
 }
 
 .album-item.picked.zoomed img {
@@ -1531,121 +1601,127 @@ body.blockScroll {
 
 .album-item-buttonContainer {
   position: relative;
-  width: ${albumItems.buttonContainer.size.width};
-  height: ${albumItems.buttonContainer.size.height};
+  width: ${albumItemsCSS.buttonContainer.size.width};
+  height: ${albumItemsCSS.buttonContainer.size.height};
   opacity: 0;
+  z-index: 10;
 }
 .album-item-buttonContainer:hover {
   opacity: 1;
 }
 
 .album-item-button-copyLink {
-  min-height: ${albumItems.buttonContainer.buttonCopyLink.size.minHeight};
-  max-height: ${albumItems.buttonContainer.buttonCopyLink.size.maxHeight};
-  background: ${albumItems.buttonContainer.buttonCopyLink.background};
-  color: ${albumItems.buttonContainer.buttonCopyLink.color};
-  border: ${albumItems.buttonContainer.buttonCopyLink.border};
-  box-shadow: ${albumItems.buttonContainer.buttonCopyLink.boxShadow};
-  border-radius: ${albumItems.buttonContainer.buttonCopyLink.borderRadius};
+  min-height: ${albumItemsCSS.buttonContainer.buttonCopyLink.size.minHeight};
+  max-height: ${albumItemsCSS.buttonContainer.buttonCopyLink.size.maxHeight};
+  background: ${albumItemsCSS.buttonContainer.buttonCopyLink.background};
+  color: ${albumItemsCSS.buttonContainer.buttonCopyLink.color};
+  border: ${albumItemsCSS.buttonContainer.buttonCopyLink.border};
+  box-shadow: ${albumItemsCSS.buttonContainer.buttonCopyLink.boxShadow};
+  -webkit-box-shadow: ${albumItemsCSS.buttonContainer.buttonCopyLink.boxShadow};
+  border-radius: ${albumItemsCSS.buttonContainer.buttonCopyLink.borderRadius};
   float: left;
-  font-size: ${albumItems.buttonContainer.buttonCopyLink.fontSize};
-  line-height: ${albumItems.buttonContainer.buttonCopyLink.lineHeight};
-  margin: ${albumItems.buttonContainer.buttonCopyLink.margin};
-  padding: ${albumItems.buttonContainer.buttonCopyLink.padding};
+  font-size: ${albumItemsCSS.buttonContainer.buttonCopyLink.fontSize};
+  line-height: ${albumItemsCSS.buttonContainer.buttonCopyLink.lineHeight};
+  margin: ${albumItemsCSS.buttonContainer.buttonCopyLink.margin};
+  padding: ${albumItemsCSS.buttonContainer.buttonCopyLink.padding};
 }
 .album-item-button-copyLink:hover {
-  background: ${albumItems.buttonContainer.buttonCopyLink.hover.background};
-  color: ${albumItems.buttonContainer.buttonCopyLink.hover.color};
+  background: ${albumItemsCSS.buttonContainer.buttonCopyLink.hover.background};
+  color: ${albumItemsCSS.buttonContainer.buttonCopyLink.hover.color};
 }
 
 .album-item-button-imgSearch {
-  min-height: ${albumItems.buttonContainer.buttonSearch.size.minHeight};
-  max-height: ${albumItems.buttonContainer.buttonSearch.size.maxHeight};
-  background: ${albumItems.buttonContainer.buttonSearch.background};
-  color: ${albumItems.buttonContainer.buttonSearch.color};
-  border: ${albumItems.buttonContainer.buttonSearch.border};
-  box-shadow: ${albumItems.buttonContainer.buttonSearch.boxShadow};
-  border-radius: ${albumItems.buttonContainer.buttonSearch.borderRadius};
+  min-height: ${albumItemsCSS.buttonContainer.buttonSearch.size.minHeight};
+  max-height: ${albumItemsCSS.buttonContainer.buttonSearch.size.maxHeight};
+  background: ${albumItemsCSS.buttonContainer.buttonSearch.background};
+  color: ${albumItemsCSS.buttonContainer.buttonSearch.color};
+  border: ${albumItemsCSS.buttonContainer.buttonSearch.border};
+  box-shadow: ${albumItemsCSS.buttonContainer.buttonSearch.boxShadow};
+  -webkit-box-shadow: ${albumItemsCSS.buttonContainer.buttonSearch.boxShadow};
+  border-radius: ${albumItemsCSS.buttonContainer.buttonSearch.borderRadius};
   float: left;
-  font-size: ${albumItems.buttonContainer.buttonSearch.fontSize};
-  line-height: ${albumItems.buttonContainer.buttonSearch.lineHeight};
-  margin: ${albumItems.buttonContainer.buttonSearch.margin};
-  padding: ${albumItems.buttonContainer.buttonSearch.padding};
+  font-size: ${albumItemsCSS.buttonContainer.buttonSearch.fontSize};
+  line-height: ${albumItemsCSS.buttonContainer.buttonSearch.lineHeight};
+  margin: ${albumItemsCSS.buttonContainer.buttonSearch.margin};
+  padding: ${albumItemsCSS.buttonContainer.buttonSearch.padding};
 }
 .album-item-button-imgSearch:hover {
-  background: ${albumItems.buttonContainer.buttonSearch.hover.background};
-  color: ${albumItems.buttonContainer.buttonSearch.hover.color};
+  background: ${albumItemsCSS.buttonContainer.buttonSearch.hover.background};
+  color: ${albumItemsCSS.buttonContainer.buttonSearch.hover.color};
 }
 
 .album-item-button-download {
-  min-height: ${albumItems.buttonContainer.buttonImgDownload.size.minHeight};
-  max-height: ${albumItems.buttonContainer.buttonImgDownload.size.maxHeight};
-  background: ${albumItems.buttonContainer.buttonImgDownload.background};
-  color: ${albumItems.buttonContainer.buttonImgDownload.color};
-  border: ${albumItems.buttonContainer.buttonImgDownload.border};
-  box-shadow: ${albumItems.buttonContainer.buttonImgDownload.boxShadow};
-  border-radius: ${albumItems.buttonContainer.buttonImgDownload.borderRadius};
+  min-height: ${albumItemsCSS.buttonContainer.buttonImgDownload.size.minHeight};
+  max-height: ${albumItemsCSS.buttonContainer.buttonImgDownload.size.maxHeight};
+  background: ${albumItemsCSS.buttonContainer.buttonImgDownload.background};
+  color: ${albumItemsCSS.buttonContainer.buttonImgDownload.color};
+  border: ${albumItemsCSS.buttonContainer.buttonImgDownload.border};
+  box-shadow: ${albumItemsCSS.buttonContainer.buttonImgDownload.boxShadow};
+  -webkit-box-shadow: ${albumItemsCSS.buttonContainer.buttonImgDownload.boxShadow};
+  border-radius: ${albumItemsCSS.buttonContainer.buttonImgDownload.borderRadius};
   float: left;
-  font-size: ${albumItems.buttonContainer.buttonImgDownload.fontSize};
-  line-height: ${albumItems.buttonContainer.buttonImgDownload.lineHeight};
-  margin: ${albumItems.buttonContainer.buttonImgDownload.margin};
-  padding: ${albumItems.buttonContainer.buttonImgDownload.padding};
+  font-size: ${albumItemsCSS.buttonContainer.buttonImgDownload.fontSize};
+  line-height: ${albumItemsCSS.buttonContainer.buttonImgDownload.lineHeight};
+  margin: ${albumItemsCSS.buttonContainer.buttonImgDownload.margin};
+  padding: ${albumItemsCSS.buttonContainer.buttonImgDownload.padding};
 }
 .album-item-button-download:hover {
-  background: ${albumItems.buttonContainer.buttonImgDownload.hover.background};
-  color: ${albumItems.buttonContainer.buttonImgDownload.hover.color};
+  background: ${albumItemsCSS.buttonContainer.buttonImgDownload.hover.background};
+  color: ${albumItemsCSS.buttonContainer.buttonImgDownload.hover.color};
 }
 
 .album-item-button-turnOffZoom {
-  min-height: ${albumItems.buttonContainer.buttonTurnOffZoom.size.minHeight};
-  max-height: ${albumItems.buttonContainer.buttonTurnOffZoom.size.maxHeight};
-  background: ${albumItems.buttonContainer.buttonTurnOffZoom.background};
-  color: ${albumItems.buttonContainer.buttonTurnOffZoom.color};
-  border: ${albumItems.buttonContainer.buttonTurnOffZoom.border};
-  box-shadow: ${albumItems.buttonContainer.buttonTurnOffZoom.boxShadow};
-  border-radius: ${albumItems.buttonContainer.buttonTurnOffZoom.borderRadius};
+  min-height: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.size.minHeight};
+  max-height: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.size.maxHeight};
+  background: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.background};
+  color: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.color};
+  border: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.border};
+  box-shadow: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.boxShadow};
+  -webkit-box-shadow: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.boxShadow};
+  border-radius: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.borderRadius};
   float: left;
-  font-size: ${albumItems.buttonContainer.buttonTurnOffZoom.fontSize};
-  line-height: ${albumItems.buttonContainer.buttonTurnOffZoom.lineHeight};
-  margin: ${albumItems.buttonContainer.buttonTurnOffZoom.margin};
-  padding: ${albumItems.buttonContainer.buttonTurnOffZoom.padding};
+  font-size: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.fontSize};
+  line-height: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.lineHeight};
+  margin: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.margin};
+  padding: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.padding};
 }
 .album-item-button-turnOffZoom:hover {
-  background: ${albumItems.buttonContainer.buttonTurnOffZoom.hover.background};
+  background: ${albumItemsCSS.buttonContainer.buttonTurnOffZoom.hover.background};
 }
 
 .srcSearch {
-  min-width: ${albumItems.searchMenu.size.minWidth};
-  min-height: ${albumItems.searchMenu.size.minHeight};
-  background: ${albumItems.searchMenu.background};
+  min-width: ${albumItemsCSS.searchMenu.size.minWidth};
+  min-height: ${albumItemsCSS.searchMenu.size.minHeight};
+  background: ${albumItemsCSS.searchMenu.background};
   position: fixed;
   display: grid;
-  grid-template-columns: repeat(${albumItems.searchMenu.itemsInColumn}, auto);
-  gap: ${albumItems.searchMenu.gap};
+  grid-template-columns: repeat(${albumItemsCSS.searchMenu.itemsInColumn}, auto);
+  grid-gap: ${albumItemsCSS.searchMenu.gap};
   align-content: center;
   justify-content: center;
+  -webkit-justify-content: center;
   align-items: center;
   justify-items: center;
-  padding: ${albumItems.searchMenu.padding};
-  border-radius: ${albumItems.searchMenu.borderRadius};
+  padding: ${albumItemsCSS.searchMenu.padding};
+  border-radius: ${albumItemsCSS.searchMenu.borderRadius};
   z-index: 1000;
 }
 
 .searchmenuItem {
   display: block;
-  background: ${albumItems.searchMenu.items.background};
-  color: ${albumItems.searchMenu.items.color};
-  border-radius: ${albumItems.searchMenu.items.borderRadius};
+  background: ${albumItemsCSS.searchMenu.items.background};
+  color: ${albumItemsCSS.searchMenu.items.color};
+  border-radius: ${albumItemsCSS.searchMenu.items.borderRadius};
   text-decoration: unset;
-  border: ${albumItems.searchMenu.items.border};
-  padding: ${albumItems.searchMenu.items.padding};
-  width: -webkit-fill-available;
+  border: ${albumItemsCSS.searchMenu.items.border};
+  padding: ${albumItemsCSS.searchMenu.items.padding};
+  width: 100%;
   text-align: center;
-  font-size: ${albumItems.searchMenu.items.fontSize};
-  line-height: ${albumItems.searchMenu.items.lineHeight};
+  font-size: ${albumItemsCSS.searchMenu.items.fontSize};
+  line-height: ${albumItemsCSS.searchMenu.items.lineHeight};
 }
 .searchmenuItem:hover {
-  background: ${albumItems.searchMenu.items.hover};
+  background: ${albumItemsCSS.searchMenu.items.hover};
 }
 
 .albumPreview-field {
@@ -1663,75 +1739,75 @@ body.blockScroll {
 }
 
 .albumPreview-field-imgCount {
-  top: ${album.preview.imageCount.position.top};
-  left: ${album.preview.imageCount.position.left};
-  background: ${album.preview.imageCount.background};
-  color: ${album.preview.imageCount.color};
-  font-size: ${album.preview.imageCount.fontSize};
-  font-weight: ${album.preview.imageCount.fontWeight};
+  top: ${albumCSS.preview.imageCount.position.top};
+  left: ${albumCSS.preview.imageCount.position.left};
+  background: ${albumCSS.preview.imageCount.background};
+  color: ${albumCSS.preview.imageCount.color};
+  font-size: ${albumCSS.preview.imageCount.fontSize};
+  font-weight: ${albumCSS.preview.imageCount.fontWeight};
   text-align: center;
-  border: ${album.preview.imageCount.border};
-  border-radius: ${album.preview.imageCount.borderRadius};
-  width: ${album.preview.imageCount.size.width};
-  padding: ${album.preview.imageCount.padding};
-  margin: ${album.preview.imageCount.margin};
+  border: ${albumCSS.preview.imageCount.border};
+  border-radius: ${albumCSS.preview.imageCount.borderRadius};
+  width: ${albumCSS.preview.imageCount.size.width};
+  padding: ${albumCSS.preview.imageCount.padding};
+  margin: ${albumCSS.preview.imageCount.margin};
   display: block;
   z-index: 1000;
   position: fixed;
 }
 
 .albumPreview-field-imgZoom {
-  top: ${album.preview.imageZoomLevel.position.top};
-  left: ${album.preview.imageZoomLevel.position.left};
-  background: ${album.preview.imageZoomLevel.background};
-  color: ${album.preview.imageZoomLevel.color};
-  font-size: ${album.preview.imageZoomLevel.fontSize};
-  font-weight: ${album.preview.imageZoomLevel.fontWeight};
+  top: ${albumCSS.preview.imageZoomLevel.position.top};
+  left: ${albumCSS.preview.imageZoomLevel.position.left};
+  background: ${albumCSS.preview.imageZoomLevel.background};
+  color: ${albumCSS.preview.imageZoomLevel.color};
+  font-size: ${albumCSS.preview.imageZoomLevel.fontSize};
+  font-weight: ${albumCSS.preview.imageZoomLevel.fontWeight};
   text-align: center;
-  border: ${album.preview.imageZoomLevel.border};
-  border-radius: ${album.preview.imageZoomLevel.borderRadius};
-  width: ${album.preview.imageZoomLevel.size.width};
-  padding: ${album.preview.imageZoomLevel.padding};
-  margin: ${album.preview.imageZoomLevel.margin};
+  border: ${albumCSS.preview.imageZoomLevel.border};
+  border-radius: ${albumCSS.preview.imageZoomLevel.borderRadius};
+  width: ${albumCSS.preview.imageZoomLevel.size.width};
+  padding: ${albumCSS.preview.imageZoomLevel.padding};
+  margin: ${albumCSS.preview.imageZoomLevel.margin};
   display: block;
   z-index: 1000;
   position: fixed;
 }
 
 .albumPreview-field-imgInfo {
-  top: ${album.preview.imageInfo.position.top};
-  left: ${album.preview.imageInfo.position.left};
-  background: ${album.preview.imageInfo.background};
-  color: ${album.preview.imageInfo.color};
-  font-size: ${album.preview.imageInfo.fontSize};
-  font-weight: ${album.preview.imageInfo.fontWeight};
+  top: ${albumCSS.preview.imageInfo.position.top};
+  left: ${albumCSS.preview.imageInfo.position.left};
+  background: ${albumCSS.preview.imageInfo.background};
+  color: ${albumCSS.preview.imageInfo.color};
+  font-size: ${albumCSS.preview.imageInfo.fontSize};
+  font-weight: ${albumCSS.preview.imageInfo.fontWeight};
   text-align: center;
-  border: ${album.preview.imageInfo.border};
-  border-radius: ${album.preview.imageInfo.borderRadius};
-  width: ${album.preview.imageInfo.size.width};
-  padding: ${album.preview.imageInfo.padding};
-  margin: ${album.preview.imageInfo.margin};
+  border: ${albumCSS.preview.imageInfo.border};
+  border-radius: ${albumCSS.preview.imageInfo.borderRadius};
+  width: ${albumCSS.preview.imageInfo.size.width};
+  padding: ${albumCSS.preview.imageInfo.padding};
+  margin: ${albumCSS.preview.imageInfo.margin};
   display: block;
   z-index: 1000;
   position: fixed;
 }
 
 .albumPreview-field-imgTitle {
-  top: ${album.preview.imageTitle.position.top};
-  left: ${album.preview.imageTitle.position.left};
-  background: ${album.preview.imageTitle.background};
-  color: ${album.preview.imageTitle.color};
-  font-size: ${album.preview.imageTitle.fontSize};
-  font-weight: ${album.preview.imageTitle.fontWeight};
+  top: ${albumCSS.preview.imageTitle.position.top};
+  left: ${albumCSS.preview.imageTitle.position.left};
+  background: ${albumCSS.preview.imageTitle.background};
+  color: ${albumCSS.preview.imageTitle.color};
+  font-size: ${albumCSS.preview.imageTitle.fontSize};
+  font-weight: ${albumCSS.preview.imageTitle.fontWeight};
   text-align: left;
   word-break: break-word;
-  border: ${album.preview.imageTitle.border};
-  border-radius: ${album.preview.imageTitle.borderRadius};
-  width: ${album.preview.imageTitle.size.width};
-  max-width: ${album.preview.imageTitle.size.maxWidth};
-  max-height: ${album.preview.imageTitle.size.maxHeight};
-  padding: ${album.preview.imageTitle.padding};
-  margin: ${album.preview.imageTitle.margin};
+  border: ${albumCSS.preview.imageTitle.border};
+  border-radius: ${albumCSS.preview.imageTitle.borderRadius};
+  width: ${albumCSS.preview.imageTitle.size.width};
+  max-width: ${albumCSS.preview.imageTitle.size.maxWidth};
+  max-height: ${albumCSS.preview.imageTitle.size.maxHeight};
+  padding: ${albumCSS.preview.imageTitle.padding};
+  margin: ${albumCSS.preview.imageTitle.margin};
   display: block;
   z-index: 1000;
   position: fixed;
@@ -1739,159 +1815,272 @@ body.blockScroll {
 }
 
 .albumPreview-field-imgLinksField {
-  background: ${album.preview.imageLinksField.background};
-  color: ${album.preview.imageLinksField.color};
-  font-size: ${album.preview.imageLinksField.fontSize};
-  font-weight: ${album.preview.imageLinksField.fontWeight};
+  background: ${albumCSS.preview.imageLinksField.background};
+  color: ${albumCSS.preview.imageLinksField.color};
+  font-size: ${albumCSS.preview.imageLinksField.fontSize};
+  font-weight: ${albumCSS.preview.imageLinksField.fontWeight};
   text-align: center;
-  top: ${album.preview.imageLinksField.position.top};
-  left: ${album.preview.imageLinksField.position.left};
-  border: ${album.preview.imageLinksField.border};
-  border-radius: ${album.preview.imageLinksField.borderRadius};
-  width: ${album.preview.imageLinksField.size.width};
-  height: ${album.preview.imageLinksField.size.height};
-  padding: ${album.preview.imageLinksField.padding};
-  margin: ${album.preview.imageLinksField.margin};
+  top: ${albumCSS.preview.imageLinksField.position.top};
+  left: ${albumCSS.preview.imageLinksField.position.left};
+  border: ${albumCSS.preview.imageLinksField.border};
+  border-radius: ${albumCSS.preview.imageLinksField.borderRadius};
+  width: ${albumCSS.preview.imageLinksField.size.width};
+  height: ${albumCSS.preview.imageLinksField.size.height};
+  padding: ${albumCSS.preview.imageLinksField.padding};
+  margin: ${albumCSS.preview.imageLinksField.margin};
   display: block;
   z-index: 1000;
   position: fixed;
 }
 
 .albumPreview-field-imgLinksField-title {
-  background: ${album.preview.imageLinksField.title.background};
-  color: ${album.preview.imageLinksField.title.color};
-  font-size: ${album.preview.imageLinksField.title.fontSize};
-  font-weight: ${album.preview.imageLinksField.title.fontWeight};
+  background: ${albumCSS.preview.imageLinksField.title.background};
+  color: ${albumCSS.preview.imageLinksField.title.color};
+  font-size: ${albumCSS.preview.imageLinksField.title.fontSize};
+  font-weight: ${albumCSS.preview.imageLinksField.title.fontWeight};
   text-align: center;
-  top: ${album.preview.imageLinksField.title.position.top};
-  left: ${album.preview.imageLinksField.title.position.left};
-  border: ${album.preview.imageLinksField.title.border};
-  border-radius: ${album.preview.imageLinksField.title.borderRadius};
-  width: ${album.preview.imageLinksField.title.size.width};
-  max-height: ${album.preview.imageLinksField.title.size.maxHeight};
-  padding: ${album.preview.imageLinksField.title.padding};
-  margin: ${album.preview.imageLinksField.title.margin};
+  top: ${albumCSS.preview.imageLinksField.title.position.top};
+  left: ${albumCSS.preview.imageLinksField.title.position.left};
+  border: ${albumCSS.preview.imageLinksField.title.border};
+  border-radius: ${albumCSS.preview.imageLinksField.title.borderRadius};
+  width: ${albumCSS.preview.imageLinksField.title.size.width};
+  max-height: ${albumCSS.preview.imageLinksField.title.size.maxHeight};
+  padding: ${albumCSS.preview.imageLinksField.title.padding};
+  margin: ${albumCSS.preview.imageLinksField.title.margin};
   display: block;
   position: relative;
 }
 
 .albumPreview-field-imgLinksField-list {
-  background: ${album.preview.imageLinksField.list.background};
-  color: ${album.preview.imageLinksField.list.color};
-  font-size: ${album.preview.imageLinksField.list.fontSize};
-  font-weight: ${album.preview.imageLinksField.list.fontWeight};
+  background: ${albumCSS.preview.imageLinksField.list.background};
+  color: ${albumCSS.preview.imageLinksField.list.color};
+  font-size: ${albumCSS.preview.imageLinksField.list.fontSize};
+  font-weight: ${albumCSS.preview.imageLinksField.list.fontWeight};
   text-align: center;
   word-break: break-word;
-  top: ${album.preview.imageLinksField.list.position.top};
-  left: ${album.preview.imageLinksField.list.position.left};
-  border: ${album.preview.imageLinksField.list.border};
-  border-radius: ${album.preview.imageLinksField.list.borderRadius};
-  width: ${album.preview.imageLinksField.list.size.width};
-  height: ${album.preview.imageLinksField.list.size.height};
-  padding: ${album.preview.imageLinksField.list.padding};
-  margin: ${album.preview.imageLinksField.list.margin};
+  top: ${albumCSS.preview.imageLinksField.list.position.top};
+  left: ${albumCSS.preview.imageLinksField.list.position.left};
+  border: ${albumCSS.preview.imageLinksField.list.border};
+  border-radius: ${albumCSS.preview.imageLinksField.list.borderRadius};
+  width: ${albumCSS.preview.imageLinksField.list.size.width};
+  height: ${albumCSS.preview.imageLinksField.list.size.height};
+  padding: ${albumCSS.preview.imageLinksField.list.padding};
+  margin: ${albumCSS.preview.imageLinksField.list.margin};
   display: grid;
   justify-content: center;
+  -webkit-justify-content: center;
   overflow: auto;
 }
 .albumPreview-field-imgLinksField-list a {
   display: block;
   width: max-content;
   height: max-content;
-  color: ${album.preview.imageLinksField.list.items.color};
-  font-size: ${album.preview.imageLinksField.list.items.fontSize};
-  font-weight: ${album.preview.imageLinksField.list.items.fontWeight};
-  margin: ${album.preview.imageLinksField.list.items.margin};
+  color: ${albumCSS.preview.imageLinksField.list.items.color};
+  font-size: ${albumCSS.preview.imageLinksField.list.items.fontSize};
+  font-weight: ${albumCSS.preview.imageLinksField.list.items.fontWeight};
+  margin: ${albumCSS.preview.imageLinksField.list.items.margin};
 }
 .albumPreview-field-imgLinksField-list a:hover {
-  color: ${album.preview.imageLinksField.list.items.hover.color};
-  cursor: ${album.preview.imageLinksField.list.items.hover.cursor};
+  color: ${albumCSS.preview.imageLinksField.list.items.hover.color};
+  cursor: ${albumCSS.preview.imageLinksField.list.items.hover.cursor};
 }
 
 .album-item.picked::-webkit-scrollbar {
-  width: ${album.preview.scrollbar.sc.size.width};
-  height: ${album.preview.scrollbar.sc.size.height};
-  background: ${album.preview.scrollbar.sc.background};
+  width: ${albumCSS.preview.scrollbar.sc.size.width};
+  height: ${albumCSS.preview.scrollbar.sc.size.height};
+  background: ${albumCSS.preview.scrollbar.sc.background};
 }
 .album-item.picked::-webkit-scrollbar-track {
-  background: ${album.preview.scrollbar.track.background};
-  border-radius: ${album.preview.scrollbar.track.borderRadius};
-  margin: ${album.preview.scrollbar.track.margin};
+  background: ${albumCSS.preview.scrollbar.track.background};
+  border-radius: ${albumCSS.preview.scrollbar.track.borderRadius};
+  margin: ${albumCSS.preview.scrollbar.track.margin};
 }
 .album-item.picked::-webkit-scrollbar-track-piece {
-  background: ${album.preview.scrollbar.trackPiece.background};
-  border: ${album.preview.scrollbar.trackPiece.border};
-  border-radius: ${album.preview.scrollbar.trackPiece.borderRadius};
-  width: ${album.preview.scrollbar.trackPiece.size.width};
-  height: ${album.preview.scrollbar.trackPiece.size.height};
+  background: ${albumCSS.preview.scrollbar.trackPiece.background};
+  border: ${albumCSS.preview.scrollbar.trackPiece.border};
+  border-radius: ${albumCSS.preview.scrollbar.trackPiece.borderRadius};
+  width: ${albumCSS.preview.scrollbar.trackPiece.size.width};
+  height: ${albumCSS.preview.scrollbar.trackPiece.size.height};
 }
 .album-item.picked::-webkit-scrollbar-thumb {
-  background: ${album.preview.scrollbar.thumb.background};
-  border: ${album.preview.scrollbar.thumb.border};
-  border-radius: ${album.preview.scrollbar.thumb.borderRadius};
+  background: ${albumCSS.preview.scrollbar.thumb.background};
+  border: ${albumCSS.preview.scrollbar.thumb.border};
+  border-radius: ${albumCSS.preview.scrollbar.thumb.borderRadius};
 }
 .album-item.picked::-webkit-scrollbar-thumb:hover {
-  background: ${album.preview.scrollbar.thumb.hover.background};
+  background: ${albumCSS.preview.scrollbar.thumb.hover.background};
 }
 .album-item.picked::-webkit-scrollbar-corner {
-  background: ${album.preview.scrollbar.corner.background};
+  background: ${albumCSS.preview.scrollbar.corner.background};
 }
 
 .albumPreview-nav-previous-button {
-  width: ${album.preview.navigationButtons.previous.size.width};
-  height: ${album.preview.navigationButtons.previous.size.height};
+  width: ${albumCSS.preview.navigationButtons.previous.size.width};
+  height: ${albumCSS.preview.navigationButtons.previous.size.height};
   position: fixed;
-  border-radius: ${album.preview.navigationButtons.previous.borderRadius};
-  top: ${album.preview.navigationButtons.previous.position.top};
-  left: ${album.preview.navigationButtons.previous.position.left};
-  background: ${album.preview.navigationButtons.previous.background};
-  color: ${album.preview.navigationButtons.previous.color};
-  font-size: ${album.preview.navigationButtons.previous.fontSize};
-  border: ${album.preview.navigationButtons.previous.border};
+  border-radius: ${albumCSS.preview.navigationButtons.previous.borderRadius};
+  top: ${albumCSS.preview.navigationButtons.previous.position.top};
+  left: ${albumCSS.preview.navigationButtons.previous.position.left};
+  background: ${albumCSS.preview.navigationButtons.previous.background};
+  color: ${albumCSS.preview.navigationButtons.previous.color};
+  font-size: ${albumCSS.preview.navigationButtons.previous.fontSize};
+  border: ${albumCSS.preview.navigationButtons.previous.border};
   z-index: 2;
 }
 .albumPreview-nav-previous-button:hover {
-  background: ${album.preview.navigationButtons.previous.hover.background};
-  cursor: ${album.preview.navigationButtons.previous.hover.cursor};
+  background: ${albumCSS.preview.navigationButtons.previous.hover.background};
+  cursor: ${albumCSS.preview.navigationButtons.previous.hover.cursor};
 }
 
 .albumPreview-nav-next-button {
-  width: ${album.preview.navigationButtons.next.size.width};
-  height: ${album.preview.navigationButtons.next.size.height};
+  width: ${albumCSS.preview.navigationButtons.next.size.width};
+  height: ${albumCSS.preview.navigationButtons.next.size.height};
   position: fixed;
-  border-radius: ${album.preview.navigationButtons.next.borderRadius};
-  top: ${album.preview.navigationButtons.next.position.top};
-  right: ${album.preview.navigationButtons.next.position.right};
-  background: ${album.preview.navigationButtons.next.background};
-  color: ${album.preview.navigationButtons.next.color};
-  font-size: ${album.preview.navigationButtons.next.fontSize};
-  border: ${album.preview.navigationButtons.next.border};
+  border-radius: ${albumCSS.preview.navigationButtons.next.borderRadius};
+  top: ${albumCSS.preview.navigationButtons.next.position.top};
+  right: ${albumCSS.preview.navigationButtons.next.position.right};
+  background: ${albumCSS.preview.navigationButtons.next.background};
+  color: ${albumCSS.preview.navigationButtons.next.color};
+  font-size: ${albumCSS.preview.navigationButtons.next.fontSize};
+  border: ${albumCSS.preview.navigationButtons.next.border};
   z-index: 2;
 }
 .albumPreview-nav-next-button:hover {
-  background: ${album.preview.navigationButtons.next.hover.background};
-  cursor: ${album.preview.navigationButtons.next.hover.cursor};
+  background: ${albumCSS.preview.navigationButtons.next.hover.background};
+  cursor: ${albumCSS.preview.navigationButtons.next.hover.cursor};
 }
 
 .albumPreview-nav-close-button {
-  width: ${album.preview.navigationButtons.close.size.width};
-  height: ${album.preview.navigationButtons.close.size.height};
+  width: ${albumCSS.preview.navigationButtons.close.size.width};
+  height: ${albumCSS.preview.navigationButtons.close.size.height};
   position: fixed;
-  border-radius: ${album.preview.navigationButtons.close.borderRadius};
-  top: ${album.preview.navigationButtons.close.position.top};
-  right: ${album.preview.navigationButtons.close.position.right};
-  background: ${album.preview.navigationButtons.close.background};
-  color: ${album.preview.navigationButtons.close.color};
-  font-size: ${album.preview.navigationButtons.close.fontSize};
-  line-height: ${album.preview.navigationButtons.close.lineHeight};
-  border: ${album.preview.navigationButtons.close.border};
+  border-radius: ${albumCSS.preview.navigationButtons.close.borderRadius};
+  top: ${albumCSS.preview.navigationButtons.close.position.top};
+  right: ${albumCSS.preview.navigationButtons.close.position.right};
+  background: ${albumCSS.preview.navigationButtons.close.background};
+  color: ${albumCSS.preview.navigationButtons.close.color};
+  font-size: ${albumCSS.preview.navigationButtons.close.fontSize};
+  line-height: ${albumCSS.preview.navigationButtons.close.lineHeight};
+  border: ${albumCSS.preview.navigationButtons.close.border};
   z-index: 2;
 }
 .albumPreview-nav-close-button:hover {
-  background: ${album.preview.navigationButtons.close.hover.background};
-  cursor: ${album.preview.navigationButtons.close.hover.cursor};
+  background: ${albumCSS.preview.navigationButtons.close.hover.background};
+  cursor: ${albumCSS.preview.navigationButtons.close.hover.cursor};
 }`
 document.body.appendChild(css);
+function zooming(mode, target){
+    //console.log(mode, target)
+  let zoomRep = /([0-9.]+)/;
+  let scaleRep = /scale\(([0-9.]+)\)/;
+  if(!cfg.browser.isFirefox && mode.match('zoomIn')){
+      if(target.style.zoom){
+          target.style.zoom = (+target.style.zoom.replace(zoomRep, '$1') + cfg.zoom.zoomPower);
+          imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${target.style.zoom}${imagePreviewerElements.zoomLevel.x}`;
+      }
+  }else
+  if(!cfg.browser.isFirefox && mode.match('zoomOut')){
+      if(target.style.zoom){
+          if(+target.style.zoom.replace(zoomRep, '$1') > cfg.zoom.zoomPower){
+              target.style.zoom = (+target.style.zoom.replace(zoomRep, '$1') - cfg.zoom.zoomPower);
+              imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${target.style.zoom}${imagePreviewerElements.zoomLevel.x}`;
+          }
+      }
+  }else
+  if(cfg.browser.isFirefox && mode.match('zoomIn')){
+      if(target.style.transform){
+          target.style.transform = `scale(${+target.style.transform.replace(scaleRep, '$1') + cfg.zoom.zoomPower})`;
+          imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${target.style.transform.replace(scaleRep, '$1')}${imagePreviewerElements.zoomLevel.x}`;
+      }
+  }else
+  if(cfg.browser.isFirefox && mode.match('zoomOut')){
+      if(target.style.transform){
+          if(+target.style.transform.replace(scaleRep, '$1') > cfg.zoom.zoomPower){
+              target.style.transform = `scale(${+target.style.transform.replace(scaleRep, '$1') - cfg.zoom.zoomPower})`;
+              imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${target.style.transform.replace(scaleRep, '$1')}${imagePreviewerElements.zoomLevel.x}`;
+          }
+      }
+  }else
+
+  if(cfg.browser.isFirefox && mode.match('getZoom')){
+      return target.style.transform.replace(scaleRep, '$1');
+  }else
+  if(!cfg.browser.isFirefox && mode.match('getZoom')){
+      return target.style.zoom.replace(zoomRep, '$1');
+  }else
+
+  if(cfg.browser.isFirefox && mode.match('setZoom')){
+      target.style.transform = 'scale(1.00)';
+  }else
+  if(!cfg.browser.isFirefox && mode.match('setZoom')){
+      target.style.zoom = '1.00';
+  }
+}
+
+window.addEventListener('wheel', mouseWheel, {capture:true, passive:false});
+function mouseWheel(s){
+    if(focused && button1Pressed){
+        s.preventDefault();
+        s.stopPropagation();
+        s.stopImmediatePropagation();
+        if(s.target.classList.value.match(/item-image/) && !cfg.zoom.smartZoom){
+            //alert('Item ', 'not smartZoom');
+            if(!s.target.parentNode.classList.value.match(/zoomed/)){
+                s.target.parentNode.classList.add('zoomed');
+            }else
+            if(s.target.parentNode.classList.value.match(/zoomed/)){
+              console.log(s)
+                if(s.deltaY < 0){
+                    zooming('zoomIn', s.target);
+                }else
+                if(s.deltaY > 0){
+                    zooming('zoomOut', s.target);
+                }
+            }
+        }else
+        if(!s.target.classList.value.match(/item-image/) && !cfg.zoom.smartZoom){
+            //alert('Not item ', 'not smartZoom');
+            if(!focused.classList.value.match(/zoomed/)){
+                focused.classList.add('zoomed');
+            }else
+            if(focused.classList.value.match(/zoomed/)){
+              console.log(s)
+                if(s.deltaY < 0){
+                    zooming('zoomIn', focused.children[1]);
+                }else
+                if(s.deltaY > 0){
+                    zooming('zoomOut', focused.children[1]);
+                }
+            }
+        }else
+        if(!s.target.classList.value.match(/item-image/) && cfg.zoom.smartZoom){
+            new Alert ({
+                text: `SmartZoom активен! Наведите мышь на изображение, и уже потом активируйте зум!`,
+                target: document.body,
+                top: `60px`,
+                left: `20px`,
+                timer: 4000
+            });
+        }else
+        if(s.target.classList.value.match(/item-image/) && cfg.zoom.smartZoom){
+            //alert('Item ', 'smartZoom');
+            if(!s.target.parentNode.classList.value.match(/zoomed/)){
+                s.target.parentNode.classList.add('zoomed');
+            }else
+            if(s.target.parentNode.classList.value.match(/zoomed/)){
+              console.log(s)
+                if(s.deltaY < 0){
+                    zooming('zoomIn', s.target);
+                    focused.scrollTo(s.x, s.y);
+                }else
+                if(s.deltaY > 0){
+                    zooming('zoomIn', s.target);
+                    focused.scrollTo(s.x, s.y);
+                }
+            }
+        }
+    }
+}
 
 window.addEventListener('focus', getFocus, true);
 function getFocus(e){
@@ -1909,12 +2098,12 @@ function getFocus(e){
       // img.src = focused.querySelector(`img`).src;
       // img.style.maxWidth = '840px'
       // img.style.maxHeight = '810px'
-      // img.style.zoom = 'unset'
+      // img.style.transform = 'unset'
       // console.log(focused.querySelector(`img`).src)
       layout.style.zIndex = '0';
       imagePreviewer.count.textContent = `${imagePreviewerElements.images.text}${Array.prototype.indexOf.call(focused.parentNode.children, focused) + 1}${imagePreviewerElements.images.spacer}${focused.parentNode.childElementCount}`;
       imagePreviewer.info.textContent = `${imagePreviewerElements.info.text}${focused.children[1].naturalWidth}${imagePreviewerElements.info.spacer}${focused.children[1].naturalHeight}${imagePreviewerElements.info.px}`;
-      imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+      imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
       imagePreviewer.title.textContent = `${imagePreviewerElements.title}${focused.children[1].getAttribute('imgTitle')||''}`;
       checkLinks(focused.children[1].getAttribute('imgLinks'), imagePreviewer.imgLinks);
     }
@@ -1922,7 +2111,7 @@ function getFocus(e){
 }
 window.addEventListener('keydown', keyDown, true);
 function keyDown(e){
-  if(e.code === mode.buttonPrev){
+  if(e.code.match(cfg.buttons.navigation.previous)){
     if(focused){
       e.preventDefault();
       e.stopPropagation();
@@ -1930,26 +2119,26 @@ function keyDown(e){
       if(focused.previousElementSibling){
         if(focused.classList.value.match(/zoomed/)){
             focused.scrollTo(0, 0);
-            focused.children[1].style.zoom = '100%';
+            zooming('setZoom', focused.children[1]);
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
         focused.classList.remove('picked');
         focused.previousElementSibling.focus();
       }else
       if(!focused.previousElementSibling){
         if(focused.classList.value.match(/zoomed/)){
             focused.scrollTo(0, 0);
-            focused.children[1].style.zoom = '100%';
+            zooming('setZoom', focused.children[1]);
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
         focused.classList.remove('picked');
         focused.parentNode.children[focused.parentNode.children.length-1].focus();
       }
     }
   }else
-  if(e.code === mode.buttonNext){
+  if(e.code.match(cfg.buttons.navigation.next)){
     if(focused){
       e.preventDefault();
       e.stopPropagation();
@@ -1957,26 +2146,26 @@ function keyDown(e){
       if(focused.nextElementSibling){
         if(focused.classList.value.match(/zoomed/)){
             focused.scrollTo(0, 0);
-            focused.children[1].style.zoom = '100%';
+            zooming('setZoom', focused.children[1]);
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
         focused.classList.remove('picked');
         focused.nextElementSibling.focus();
       }else
       if(!focused.nextElementSibling){
         if(focused.classList.value.match(/zoomed/)){
             focused.scrollTo(0, 0);
-            focused.children[1].style.zoom = '100%';
+            zooming('setZoom', focused.children[1]);
             focused.classList.remove('zoomed');
         }
-        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel}${focused.children[1].style.zoom}`;
+        imagePreviewer.zoom.textContent = `${imagePreviewerElements.zoomLevel.text}${zooming('getZoom', focused.children[1])}${imagePreviewerElements.zoomLevel.x}`;
         focused.classList.remove('picked');
         focused.parentNode.children[0].focus();
       }
     }
   }else
-  if(e.code === mode.buttonEsc){
+  if(e.code.match(cfg.buttons.navigation.esc)){
     if(focused){
       e.preventDefault();
       e.stopPropagation();
@@ -1991,21 +2180,87 @@ function keyDown(e){
         document.body.classList.remove('blockScroll');
         if(focused.classList.value.match(/zoomed/)){
             focused.scrollTo(0, 0);
-            focused.children[1].style.zoom = '100%';
+            zooming('setZoom', focused.children[1]);
             focused.classList.remove('zoomed');
         }
         focused.blur();
         focused = false;
       }
     }
+  }
+  if(e.code.match(cfg.buttons.zoom.in)){
+      if(focused){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          //zooming('zoomIn', focused.children[1]);
+          if(!focused.classList.value.match(/zoomed/)){
+              focused.classList.add('zoomed');
+          }else
+          if(focused.classList.value.match(/zoomed/)){
+              zooming('zoomIn', focused.children[1]);
+          }
+      }
   }else
-  if(e.code === `${mode.button1}Left`||e.code === `${mode.button1}Right`){
+  if(e.code.match(cfg.buttons.zoom.out)){
+      if(focused){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          //zooming('zoomIn', focused.children[1]);
+          if(!focused.classList.value.match(/zoomed/)){
+              focused.classList.add('zoomed');
+          }else
+          if(focused.classList.value.match(/zoomed/)){
+              zooming('zoomOut', focused.children[1]);
+          }
+      }
+  }else
+  if(e.code.match(cfg.buttons.scroll.left)){
+      if(focused){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          focused.scrollLeft -= cfg.scroll.scrollPower;
+          //for(let i = 0; i < 100; i++){
+            //  focused.scrollLeft -= 0.01;
+          //}
+          //$(focused).animate({
+            //  scrollLeft: focused.scrollLeft-50
+          //}, 400)
+      }
+  }else
+  if(e.code.match(cfg.buttons.scroll.right)){
+      if(focused){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          focused.scrollLeft += cfg.scroll.scrollPower;
+      }
+  }else
+  if(e.code.match(cfg.buttons.scroll.top)){
+      if(focused){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          focused.scrollTop -= cfg.scroll.scrollPower;
+      }
+  }else
+  if(e.code.match(cfg.buttons.scroll.bottom)){
+      if(focused){
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          focused.scrollTop += cfg.scroll.scrollPower;
+      }
+  }else
+  if(e.code.match(cfg.buttons.main.button1)){
     button1Pressed = true;
   }
 }
 window.addEventListener('keyup', keyUp, true);
 function keyUp(e){
-    if(e.code === `${mode.button1}Left`||e.code === `${mode.button1}Right`){
+    if(e.code.match(cfg.buttons.main.button1)){
     button1Pressed = false;
   }
 }
@@ -2038,12 +2293,12 @@ window.addEventListener('load', run, true);
 window.addEventListener('beforeunload', run, true);
 function run(){
   console.log('DTF-Album 2.0 is ok');
-    if(mode.main.active && !mode.main.auto){
+    if(cfg.main.active && !cfg.main.auto){
         if(document.querySelector(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)){
             for(let i = 0, arr = document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`); i < arr.length; i++){
                 // arr[i].parentNode.parentNode.parentNode.insertBefore()
                 // console.log(checkItems(arr[i]));
-                if(checkItems(arr[i]) >= mode.main.howMany){
+                if(checkItems(arr[i]) >= cfg.main.howMany){
                     if(!arr[i].parentNode.parentNode.parentNode.previousElementSibling){
                         new ButtonCreateAlbum({
                             where: arr[i].parentNode.parentNode.parentNode,
@@ -2065,17 +2320,17 @@ function run(){
             }
         }
     }else
-    if(mode.main.active && mode.main.auto){
+    if(cfg.main.active && cfg.main.auto){
         if(document.querySelector(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)){
             for(let a = 0, albumArr = document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`); a < albumArr.length; a++){
-                if(checkItems(albumArr[a]) >= mode.main.howMany){
+                if(checkItems(albumArr[a]) >= cfg.main.howMany){
                     if(!albumArr[a].parentNode.parentNode.parentNode.previousElementSibling){
                         let al = albumArr[a].parentNode.parentNode.parentNode;
                         if(!al.style.display){
                             al.style.display = 'none';
 
                             console.log('Album is founded');
-                            if(mode.main.button){
+                            if(cfg.main.button){
                               // console.log('Adding buttons', al);
                                 new ButtonCreateAlbum ({
                                 target: al,
@@ -2087,7 +2342,7 @@ function run(){
                                 target: al
                             });
                             let artsN = 0;
-                            for(let i = 0, arr = JSON.parse(al.querySelector(`textarea[name='gallery-data-holder']`).textContent.trim()); i < arr.length; i++){
+                            for(let i = 0, arr = JSON.parse(al.querySelector(`textarea[name='gallery-data-holder']`).textContent.trim()); i < arr.length; i++){
                                 if(arr[i].image.type === 'image'){
                                     new AlbumItem({
                                         imgUrl: `https://leonardo.osnova.io/${arr[i].image.data.uuid}`,
@@ -2111,7 +2366,7 @@ function run(){
                                 if(!al.style.display){
                                     al.style.display = 'none';
                                     console.log('Album is founded');
-                                    if(mode.main.button){
+                                    if(cfg.main.button){
                                       // console.log('Adding buttons2', al);
                                       new ButtonCreateAlbum ({
                                           target: al,
@@ -2123,7 +2378,7 @@ function run(){
                                         target: al
                                     });
                                     let artsN = 0;
-                                    for(let i = 0, arr = JSON.parse(al.querySelector(`textarea[name='gallery-data-holder']`).textContent.trim()); i < arr.length; i++){
+                                    for(let i = 0, arr = JSON.parse(al.querySelector(`textarea[name='gallery-data-holder']`).textContent.trim()); i < arr.length; i++){
                                         if(arr[i].image.type === 'image'){
                                             new AlbumItem({
                                                 imgUrl: `https://leonardo.osnova.io/${arr[i].image.data.uuid}`,
@@ -2145,10 +2400,10 @@ function run(){
             }
         }
     }
-    if(mode.merge.active && !mode.main.auto){
+    if(cfg.merge.active && !cfg.main.auto){
         if(document.querySelector(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)){
             if(!document.querySelector(`button[class='dtf-album-button-create-merge']`)){
-                if(checkAlbums(document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)) >= mode.merge.howMany){
+                if(checkAlbums(document.querySelectorAll(`.content.content--full figure[class='figure-gallery'] textarea[name='gallery-data-holder']`)) >= cfg.merge.howMany){
                     console.log('Creating merge button...');
                     if(!document.querySelector(`div[class='dtf-album-buttonContainer']`)){
                     let container = new ButtonContainer ({
@@ -2167,8 +2422,8 @@ function run(){
             }
         }
     }
-    if(mode.compilation.active){
-        if(document.querySelectorAll(`.content.content--full figure[class='figure-image'] .andropov_image`).length >= mode.compilation.howMany){
+    if(cfg.compilation.active){
+        if(document.querySelectorAll(`.content.content--full figure[class='figure-image'] .andropov_image`).length >= cfg.compilation.howMany){
             if(!document.querySelector(`button[class='dtf-album-button-create-compilation']`)){
                 console.log('Creating compilation button...');
                 if(!document.querySelector(`div[class='dtf-album-buttonContainer']`)){
