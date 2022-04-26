@@ -1,5 +1,5 @@
 # DTF-Album-2.0
-
+<p>Примечание: code.js это просто "чистый" код без "шапок" для Violentmonkey/Tampermonkey расширений.</p>
 <p>Версия 1.2.2<ul>
 <li>Поддержка Firefox браузера (по идее и остальных, работающих на его движке). Включается в cfg:browser:isFirefox:true</li>
 <li>Фиксы z-index некоторых элементов.</li>
